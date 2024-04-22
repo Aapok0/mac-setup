@@ -337,7 +337,7 @@ git clone https://github.com/zsh-users/zsh-completions.git ~/.config/zsh/plugins
 - Install python3, neovim, tmux, eza, batcat, htop, ripgrep, xclip, zoxide, fzf, tfswitch, telnet, azure cli, github cli, ffmpeg and tldr with homebrew:
 
 ```bash
-brew install python3 ,node neovim tmux eza bat htop ripgrep xclip zoxide fzf warrensbox/tap/tfswitch telnet azure-cli gh ffmpeg tldr
+brew install python3 node neovim tmux eza bat htop ripgrep xclip zoxide fzf warrensbox/tap/tfswitch telnet azure-cli gh ffmpeg tldr
 ```
 
 - Change tfswitch path to the current computer's home.
