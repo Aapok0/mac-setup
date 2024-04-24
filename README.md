@@ -310,10 +310,15 @@ brew install coreutils
 PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"
 ```
 
-- Install spaceship prompt theme:
+- Install Spaceship prompt theme or PowerLevel10k theme:
+  - PowerLevel10k currently in use.
 
 ```bash
 git clone https://github.com/spaceship-prompt/spaceship-prompt.git ~/.config/zsh/themes/spaceship-prompt
+```
+
+```bash
+git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.config/zsh/themes/powerlevel10k
 ```
 
 - Install Fast-Syntax-Highlighting plugin:
@@ -334,12 +339,27 @@ git clone https://github.com/zsh-users/zsh-autosuggestions.git ~/.config/zsh/plu
 git clone https://github.com/zsh-users/zsh-completions.git ~/.config/zsh/plugins/zsh-completions
 ```
 
-- Install python3, neovim, tmux, eza, batcat, htop, ripgrep, xclip, zoxide, fzf, tfswitch, telnet, azure cli, github cli, ffmpeg and tldr with homebrew:
+- Install wget python3, neovim, tmux, eza, batcat, htop, ripgrep, xclip, zoxide, fzf, fd, tfswitch, telnet, azure cli, github cli, ffmpeg, tldr and thefuck with homebrew:
 
 ```bash
-brew install python3 node neovim tmux eza bat htop ripgrep xclip zoxide fzf warrensbox/tap/tfswitch telnet azure-cli gh ffmpeg tldr
+brew install wget python3 node neovim tmux eza bat htop ripgrep xclip zoxide fzf fd warrensbox/tap/tfswitch telnet azure-cli gh ffmpeg tlrc thefuck
 ```
 
+- Install fzf-git from source:
+
+```bash
+git clone https://github.com/junegunn/fzf-git.sh.git ~/.config/zsh/tools/fzf-git.sh
+```
+
+- Change fzf tool init to `eval "$(fzf --zsh)"`
+- Change `fdfind` to `fd` in the custom fzf commands.
+- Install Catppuccin Mocha theme for batcat:
+
+```bash
+mkdir -p "$(bat --config-dir)/themes" && \
+wget -P "$(bat --config-dir)/themes" https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Mocha.tmTheme && \
+bat cache --build
+```
 - Change tfswitch path to the current computer's home.
 - Create a Python virtual environment and install ansible:
 
@@ -423,6 +443,12 @@ sudo ln -s /absolute/path/to/home/.config/tmux/tmux-tools/tmuxf /usr/local/bin/t
 
 ```bash
 git clone https://github.com/Aapok0/gitconfig.git ~/.config/gitconfig
+```
+
+- Install git-delta with homebrew:
+
+```bash
+brew install git-delta
 ```
 
 - Make symbolic link of the gitconfig to home (replace absolute path with the actual path:
@@ -600,12 +626,29 @@ brew install --cask homebrew/cask-versions/firefox-developer-edition
 
 - TBD
 
-### Docker Desktop
+### Docker Desktop and Kubernetes
 
-- Install Docker Desktop with homebrew:
+- Install Docker Desktop with homebrew (kubectl comes with it):
 
 ```bash
 brew install --cask docker
+```
+
+- Choose dark theme.
+- At least 4 cores, 8GB momery and 64GB disk.
+- Need to enable Kubernetes to use it.
+- Install helm with homebrew:
+
+```bash
+brew install helm
+```
+
+### Wireshark
+
+- Install Wireshark with homebrew:
+
+```bash
+brew install --cask wireshark
 ```
 
 ### Media apps
