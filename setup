@@ -1,0 +1,195 @@
+#! /usr/bin/env sh
+
+echo "Setting up Mac with certain set of apps and setting up terminal environment with certain CLI tools:"
+
+# Check if Homebrew is installed and install if not
+if ! command -v brew >/dev/null 2>&1; then
+    echo; echo "Homebrew not found. Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+
+    echo; echo "Tapping alternative cask versions..."
+    brew tap homebrew/cask-versions
+else
+    echo; echo "Homebrew is already installed. Updating Homebrew..."
+    brew update
+fi
+
+# Install Raycast
+echo; echo "Installing Raycast (app to seacrch and run commands)..."
+brew install --cask raycast
+
+# Choose and install window manager
+echo;
+while true; do
+    read -p 'Which window manager do you want to install, (R)ectangle, (y)abai, (b)oth or (n)one: ' -r
+    case $REPLY in
+        ""|"R"|"r"|"Rectangle"|"rectangle")
+            echo; echo "Installing Rectangle..."
+            brew install --cask rectangle
+            break
+            ;;
+        "Y"|"y"|"Yabai"|"yabai")
+            echo; echo "Installing Yabai and skhd (for keyboard shortcuts)..."
+            brew install koekeishiya/formulae/yabai koekeishiya/formulae/skhd
+            echo; echo "Cloning Yabai configuration repository to ~/.config..."
+            git clone https://github.com/Aapok0/yabai.git ${HOME}/test/.config/yabai
+            echo; echo "Cloning skhd shortcuts repository to ~/.config..."
+            git clone https://github.com/Aapok0/skhd.git ${HOME}/.config/skhd
+            echo; echo "Starting Yabai service..."
+            echo "yabai --start-service"
+            echo; echo "Starting skhd service..."
+            echo "skhd --start-service"
+            break
+            ;;
+        "B"|"b"|"Both"|"both")
+            echo; echo "Installing Rectangle..."
+            brew install --cask rectangle
+
+            echo; echo "Installing Yabai and skhd (for keyboard shortcuts)..."
+            brew install koekeishiya/formulae/yabai koekeishiya/formulae/skhd
+            echo; echo "Cloning Yabai configuration repository to ~/.config..."
+            git clone https://github.com/Aapok0/yabai.git ${HOME}/test/.config/yabai
+            echo; echo "Cloning skhd shortcuts repository to ~/.config..."
+            git clone https://github.com/Aapok0/skhd.git ${HOME}/test/.config/skhd
+            echo; echo "Starting Yabai service..."
+            echo "yabai --start-service"
+            echo; echo "Starting skhd service..."
+            echo "skhd --start-service"
+            break
+            ;;
+        "N"|"n"|"None"|"none")
+            echo; echo "Not installing any window manager."
+            break
+            ;;
+        *)
+            echo; echo "Invalid option for window manager."
+            ;;
+    esac
+done
+
+# Install and  configure Kitty
+echo; echo "Installing kitty terminal emulator..."
+brew install kitty
+
+echo; echo "Cloning kitty configuration repository to ~/.config..."
+git clone https://github.com/Aapok0/kitty.git ${HOME}/.config/kitty
+
+echo; echo "Installing the font used in the configuration (Fira Code Nerd Font)..."
+brew tap homebrew/cask-fonts
+brew install --cask font-fira-code-nerd-font
+
+echo; echo "Making kitty windows draggable..."
+echo "Changing kitty configuration 'hide_window_decorations' for 'yes' to 'titlebar-only'..."
+sed -i "" "s/hide_window_decorations yes/hide_window_decorations titlebar-only/" ${HOME}/.config/kitty/kiity.conf
+echo "Running following setting change: 'defaults write -g NSWindowShouldDragOnGesture YES'..."
+defaults write -g NSWindowShouldDragOnGesture YES
+
+# Configure ZSH
+
+echo; echo "Cloning ZSH configuration repository to ~/.config..."
+git clone https://github.com/Aapok0/zsh.git ${HOME}/.config/zsh
+
+echo; echo "Commenting out PATH variable rewrite..."
+
+```bash
+sed -i '' '/^export PATH=/ s/^/#/' ${HOME}/.config/zsh/.zshrc
+```
+
+echo; echo "Adding line to initialize Homebrew to .zshrc..."
+sed -i "" "/export VISUAL='nvim'/r"<(
+    echo ""
+    echo ""
+    echo "### HOMEBREW"
+    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"'
+) ${HOME}/.config/zsh/.zshrc
+
+echo; echo "Installing coreutils and adding it to path to get dircolors working..."
+brew install coreutils
+sed -i "" "/eval \"\$(/opt/homebrew/bin/brew shellenv)\"/r"<(
+    echo ""
+    echo ""
+    echo "### COREUTILS FOR DIRCOLOR"
+    echo 'PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"'
+) ${HOME}/.config/zsh/.zshrc
+
+# This was recently changed to...? Starship?
+echo;
+ while true; do
+    read -p "Which prompt theme would you like to install, (P)owerlevel10k or (s)paceship: "
+    case $REPLY in
+        ""|"P"|"p"|"Powerlevel10k"|"powerlevel10k"|"Powelevel"|"powerlevel")
+            echo; echo "Cloning PowerLevel10k theme to ~/.config/zsh/themes~..."
+            git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${HOME}/.config/zsh/themes/powerlevel10k
+            break
+            ;;
+        "S"|"s"|"Spaceship"|"spaceship")
+            echo; echo "Cloning Spaceship theme to ~/.config/zsh/themes~..."
+            git clone https://github.com/spaceship-prompt/spaceship-prompt.git ${HOME}/.config/zsh/themes/spaceship-prompt
+            break
+            ;;
+        *)
+            echo; echo "Invalid option for prompt theme."
+            ;;
+    esac
+done
+
+echo; echo "Installing ZSH plugins Fast-Syntax-Highlighting, ZSH-Autosuggestions and ZSH-Completions from source to ~/.config/zsh/plugins..."
+git clone https://github.com/zdharma-continuum/fast-syntax-highlighting.git ${HOME}/.config/zsh/plugins/fast-syntax-highlighting
+git clone https://github.com/zsh-users/zsh-autosuggestions.git ${HOME}/.config/zsh/plugins/zsh-autosuggestions
+git clone https://github.com/zsh-users/zsh-completions.git ${HOME}/.config/zsh/plugins/zsh-completions
+
+echo; echo "Installing following CLI tools: wget, python3, neovim, tmux, eza, batcat, htop, ripgrep, xclip, zoxide, fzf, fd, tfswitch, telnet, tcptraceroute, azure cli, github cli, ffmpeg, tlrc, thefuck and nb..."
+brew install wget python3 node neovim tmux eza bat htop ripgrep xclip zoxide fzf fd warrensbox/tap/tfswitch telnet tcptraceroute azure-cli gh ffmpeg tlrc thefuck nb
+
+echo; echo "Installing fzf-git from source to ~/.config/zsh/tools..."
+git clone https://github.com/junegunn/fzf-git.sh.git ${HOME}/.config/zsh/tools/fzf-git.sh
+
+echo; echo "Changing fdfind commands to fd in .zshrc..."
+
+echo; echo "Installing Catppuccing Mocha theme for batcat..."
+
+echo; echo ""
+
+# Neovim
+# tmux
+# tmux tools
+
+# Add gitconfig
+echo; echo "Cloning gitconfig repository to ~/.config and copying gitconfig to ~..."
+git clone https://github.com/Aapok0/gitconfig.git ${HOME}/.config/gitconfig
+cp ${HOME}/.config/gitconfig/.gitconfig ${HOME}/.gitconfig
+
+while true; do
+    echo;
+    read -p "Give your first and last name to be set for your name in git: "
+    case $REPLY in
+        "")
+            echo; echo "No name was given."
+            continue
+            ;;
+        *)
+            sed -i "" "s/name =/name = $REPLY/" ${HOME}/.gitconfig
+            echo; echo "Name $REPLY has been inserted into gitconfig."
+            break
+    esac
+done
+
+while true; do
+    echo;
+    read -p "Give your email to be set as your email in git: "
+    case $REPLY in
+        "")
+            echo; echo "No email was given."
+            continue
+            ;;
+        *)
+            sed -i "" "s/email =/email = $REPLY/" ${HOME}/.gitconfig
+            echo; echo "Email $REPLY has been inserted into gitconfig."
+            break
+    esac
+done
+
+# SSH key
+# Menu bar apps installation
+# Installing rest of the apps

@@ -7,10 +7,11 @@ I've compiled here all the settings, configurations and apps I use with Mac. I c
 1. [System Settings](#system-settings)
 2. [Finder](#finder)
 3. [Homebrew - Package manager](#homebrew---package-manager)
-4. [Raycast - Replacemement for Spotlight](#raycast---replacemement-for-spotlight)
-5. [Window management](#window-management)
-6. [Terminal and tools](#terminal-and-tools)
-7. [Apps](#apps)
+4. [Dotfiles](#dotfiles)
+5. [Raycast - Replacemement for Spotlight](#raycast---replacemement-for-spotlight)
+6. [Window management](#window-management)
+7. [Terminal and tools](#terminal-and-tools)
+8. [Apps](#apps)
 
 ## System Settings
 
@@ -125,14 +126,14 @@ defaults write com.apple.Dock showhidden -bool TRUE && killall Dock
 defaults write com.apple.screencapture type jpg
 ```
 
-- Change screenshot default location `~/Pictures/Screenshots` with the following commands (default is Desktop):
+- Change screenshot default location `${HOME}/Pictures/Screenshots` with the following commands (default is Desktop):
 
 ```bash
-mkdir ~/Pictures/Screenshots
+mkdir ${HOME}/Pictures/Screenshots
 ```
 
 ```bash
-defaults write com.apple.screencapture location "~/Pictures/Screenshots"
+defaults write com.apple.screencapture location "${HOME}/Pictures/Screenshots"
 ```
 
 ### iCloud
@@ -181,6 +182,27 @@ defaults write com.apple.screencapture location "~/Pictures/Screenshots"
 brew tap homebrew/cask-versions
 ```
 
+## Dotfiles
+
+- Create Workspace directory to `$HOME/`:
+
+```bash
+mkdir ${HOME}/Workspace
+```
+
+- Clone dotfiles repository to `${HOME}/Workspace/` for configurations:
+
+```bash
+git clone https://github.com/Aapok0/dotfiles.git ${HOME}/Workspace/dotfiles
+```
+
+- Install stow with homebrew:
+  - To add configurations for tools and applications from dotfiles.
+
+```bash
+brew install stow
+```
+
 ## Raycast - Replacemement for Spotlight
 
 - Install Raycast with homebrew:
@@ -206,10 +228,11 @@ brew install --cask raycast
 brew install koekeishiya/formulae/yabai
 ```
 
-- Clone Yabai configuration to `~/.config` from [here](https://github.com/Aapok0/yabai):
+- Stow Yabai configuration to `${HOME}` from `$HOME/Workspace/dotfiles`:
 
 ```bash
-git clone https://github.com/Aapok0/yabai.git
+cd ${HOME}/Workspace/dotfiles && \
+stow -vRt ${HOME} yabai
 ```
 
 - To set shortcuts for Yabai, install skhd with homebrew:
@@ -218,10 +241,11 @@ git clone https://github.com/Aapok0/yabai.git
 brew install koekeishiya/formulae/skhd
 ```
 
-- Clone skhd configuration to `~/.config` from [here]():
+- Stow skhd configuration to `${HOME}` from `$HOME/Workspace/dotfiles`
 
 ```bash
-TBD
+cd ${HOME}/Workspace/dotfiles && \
+stow -vRt ${HOME} skhd
 ```
 
 - Start skhd service with the following command (and give permissions, if needed):
@@ -256,10 +280,11 @@ brew install --cask rectangle
 brew install kitty
 ```
 
-- Clone kitty configuration to `~/.config` from [here](https://github.com/Aapok0/kitty):
+- Stow kitty configuration to `${HOME}` from `${HOME}/Workspace/dotfiles`:
 
 ```bash
-git clone https://github.com/Aapok0/kitty.git ~/.config/kitty
+cd ${HOME}/Workspace/dotfiles && \
+stow -vRt ${HOME} kitty
 ```
 
 - The configuration uses Fira Code Nerd Font. You can install it with homebrew:
@@ -284,26 +309,27 @@ defaults write -g NSWindowShouldDragOnGesture YES
 
 ### ZSH
 
-- Clone ZSH configuration to `~/.config` from [here](https://github.com/Aapok0/zsh):
+- Clone ZSH configuration to `${HOME}/.config` from [here](https://github.com/Aapok0/zsh):
 
 ```bash
-git clone https://github.com/Aapok0/zsh.git ~/.config/zsh
+git clone https://github.com/Aapok0/zsh.git ${HOME}/.config/zsh
 ```
 
-- Add the following line to `~/.config/zsh/.zshrc` to get homebrew and the installed apps to work (after DEFAULT EDITOR):
+- Comment out the PATH variable rewrite in `${HOME}/.config/zsh/.zshrc`.
+- Add the following line to `${HOME}/.config/zsh/.zshrc` to get homebrew and the installed apps to work (after DEFAULT EDITOR):
 
 ```bash
 ### HOMEBREW
 eval "$(/opt/homebrew/bin/brew shellenv)"
 ```
 
-- Install coreutils with homebrew to to get dircolors:
+- Install coreutils with homebrew to get dircolors:
 
 ```bash
 brew install coreutils
 ```
 
-- Add the following line to `~/.config/zsh/.zshrc` to add coreutils to PATH (add before COMPLETIONS):
+- Add the following line to `${HOME}/.config/zsh/.zshrc` to add coreutils to PATH (add before COMPLETIONS):
 
 ```bash
 ### COREUTILS FOR DIRCOLOR
@@ -314,41 +340,41 @@ PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"
   - PowerLevel10k currently in use.
 
 ```bash
-git clone https://github.com/spaceship-prompt/spaceship-prompt.git ~/.config/zsh/themes/spaceship-prompt
+git clone https://github.com/spaceship-prompt/spaceship-prompt.git ${HOME}/.config/zsh/themes/spaceship-prompt
 ```
 
 ```bash
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.config/zsh/themes/powerlevel10k
+git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${HOME}/.config/zsh/themes/powerlevel10k
 ```
 
 - Install Fast-Syntax-Highlighting plugin:
 
 ```bash
-git clone https://github.com/zdharma-continuum/fast-syntax-highlighting.git ~/.config/zsh/plugins/fast-syntax-highlighting
+git clone https://github.com/zdharma-continuum/fast-syntax-highlighting.git ${HOME}/.config/zsh/plugins/fast-syntax-highlighting
 ```
 
 - Install ZSH-Autosuggestions plugin:
 
 ```bash
-git clone https://github.com/zsh-users/zsh-autosuggestions.git ~/.config/zsh/plugins/zsh-autosuggestions
+git clone https://github.com/zsh-users/zsh-autosuggestions.git ${HOME}/.config/zsh/plugins/zsh-autosuggestions
 ```
 
 - Install ZSH-Completions plugin:
 
 ```bash
-git clone https://github.com/zsh-users/zsh-completions.git ~/.config/zsh/plugins/zsh-completions
+git clone https://github.com/zsh-users/zsh-completions.git ${HOME}/.config/zsh/plugins/zsh-completions
 ```
 
-- Install wget python3, neovim, tmux, eza, batcat, htop, ripgrep, xclip, zoxide, fzf, fd, tfswitch, telnet, azure cli, github cli, ffmpeg, tldr and thefuck with homebrew:
+- Install wget, python3, neovim, tmux, eza, batcat, htop, ripgrep, xclip, zoxide, fzf, fd, tfswitch, telnet, azure cli, github cli, ffmpeg, tlrc, thefuck and nb with homebrew:
 
 ```bash
-brew install wget python3 node neovim tmux eza bat htop ripgrep xclip zoxide fzf fd warrensbox/tap/tfswitch telnet azure-cli gh ffmpeg tlrc thefuck
+brew install wget python3 node neovim tmux eza bat htop ripgrep xclip zoxide fzf fd warrensbox/tap/tfswitch telnet azure-cli gh ffmpeg tlrc thefuck nb
 ```
 
 - Install fzf-git from source:
 
 ```bash
-git clone https://github.com/junegunn/fzf-git.sh.git ~/.config/zsh/tools/fzf-git.sh
+git clone https://github.com/junegunn/fzf-git.sh.git ${HOME}/.config/zsh/tools/fzf-git.sh
 ```
 
 - Change fzf tool init to `eval "$(fzf --zsh)"`
@@ -360,43 +386,77 @@ mkdir -p "$(bat --config-dir)/themes" && \
 wget -P "$(bat --config-dir)/themes" https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Mocha.tmTheme && \
 bat cache --build
 ```
-- Change tfswitch path to the current computer's home.
+- Change nb default directory, if you want (default is ~/.nb):
+
+```bash
+nb settings set nb_dir ${HOME}/Workspace/notes
+```
+
+- Install pyenv and install latest python
+
+```bash
+brew install pyenv
+pyenv install <latest version here>
+```
+
+- Add following to .zshrc
+
+```bash
+# bin path for pyenv
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init - zsh)"
+```
+
+- Make latest python version global
+
+```bash
+exec zsh
+pyenv global <latest version here>
+```
+
 - Create a Python virtual environment and install ansible:
 
 ```bash
-mdkir ~/Python
+mdkir ${HOME}/Python
 ```
 
 ```bash
-python3.12 -m venv ~/Python/python3.12
+python -m venv ${HOME}/Python/general
+python -m venv ${HOME}/Python/ansible
 ```
 
-- Install ansible to the virtual environment:
+- Setup python environments:
 
 ```bash
+source ~/Python/ansible/bin/activate
+pip install --upgrade pip
 pip install ansible
+deactivate
+source ~/Python/general/bin/activate
+pip install --upgrade pip
 ```
 
-- Remove unnecessary tools from the end of `~/.config/zsh/.zshrc`.
+- Remove unnecessary tools from the end of `${HOME}/.config/zsh/.zshrc`.
 
-- Create symlink of .zshenv to home directory have zsh use `~/.config/zsh` as the directory for zsh files (replace the beginning of the paths with the absolute path):
+- Create symlink of .zshenv to home directory have zsh use `${HOME}/.config/zsh` as the directory for zsh files:
 
 ```bash
-ln -s /absolute/path/to/home/.config/zsh/.zshenv /absolute/path/to/home/.zshenv
+ln -s ${HOME}/.config/zsh/.zshenv ${HOME}/.zshenv
 ```
 
 - Source .zshenv and .zshrc:
 
 ```bash
-source ~/.zshenv && source ~/.config/zsh/.zshrc
+source ${HOME}/.zshenv && source ${HOME}/.config/zsh/.zshrc
 ```
 
 ### Neovim
 
-- Clone configuration to `~/.config` from [here](https://github.com/Aapok0/nvim):
+- Clone configuration to `${HOME}/.config` from [here](https://github.com/Aapok0/nvim):
 
 ```bash
-git clone https://github.com/Aapok0/nvim.git ~/.config/nvim
+git clone https://github.com/Aapok0/nvim.git ${HOME}/.config/nvim
 ```
 - Some of the plugins and features require npm, xclip and ripgrep, but those have been installed earlier.
 - Neovim will install all the plugins and lsp servers, when you first open it.
@@ -404,16 +464,16 @@ git clone https://github.com/Aapok0/nvim.git ~/.config/nvim
 
 ### tmux
 
-- Clone configuration to `~/config` from [here](https://github.com/Aapok0/tmux):
+- Clone configuration to `${HOME}/config` from [here](https://github.com/Aapok0/tmux):
 
 ```bash
-git clone https://github.com/Aapok0/tmux.git ~/.config/tmux
+git clone https://github.com/Aapok0/tmux.git ${HOME}/.config/tmux
 ```
 
 - Install tmux package manager with the following command:
 
 ```bash
-git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+git clone https://github.com/tmux-plugins/tpm ${HOME}/.tmux/plugins/tpm
 ```
 
 - Open tmux session and press `prefix + I` to install the plugins defined in the configuration.
@@ -421,28 +481,28 @@ git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 #### tmux tools
 
 - Requires tmux, zoxide and fzf, which were installed earlier.
-- Clone the tools to `~/.config/tmux` from [here](https://github.com/Aapok0/tmux-tools):
+- Clone the tools to `${HOME}/.config/tmux` from [here](https://github.com/Aapok0/tmux-tools):
 
 ```bash
-git clone https://github.com/Aapok0/tmux-tools.git ~/.config/tmux/tmux-tools
+git clone https://github.com/Aapok0/tmux-tools.git ${HOME}/.config/tmux/tmux-tools
 ```
 
-- Make symbolic links of the tools to a bin in path (make sure to replace with the absolute path of the tool):
+- Make symbolic links of the tools to a bin in path:
 
 ```bash
-sudo ln -s /absolute/path/to/home/.config/tmux/tmux-tools/tmuxz /usr/local/bin/tmuxz
+sudo ln -s ${HOME}/.config/tmux/tmux-tools/tmuxz /usr/local/bin/tmuxz
 ```
 
 ```bash
-sudo ln -s /absolute/path/to/home/.config/tmux/tmux-tools/tmuxf /usr/local/bin/tmuxf
+sudo ln -s ${HOME}/.config/tmux/tmux-tools/tmuxf /usr/local/bin/tmuxf
 ```
 
 ### Gitconfig
 
-- Clone configuration to `~/.config/gitconfig` from [here](https://github.com/Aapok0/gitconfig):
+- Clone configuration to `${HOME}/.config/gitconfig` from [here](https://github.com/Aapok0/gitconfig):
 
 ```bash
-git clone https://github.com/Aapok0/gitconfig.git ~/.config/gitconfig
+git clone https://github.com/Aapok0/gitconfig.git ${HOME}/.config/gitconfig
 ```
 
 - Install git-delta with homebrew:
@@ -451,10 +511,11 @@ git clone https://github.com/Aapok0/gitconfig.git ~/.config/gitconfig
 brew install git-delta
 ```
 
-- Make symbolic link of the gitconfig to home (replace absolute path with the actual path:
+- Copy gitconfig to home:
 
-```bash
-sudo ln -s /absolute/path/to/home/.config/gitconfig/.gitconfig /absolute/path/to/home/.gitconfig
+``
+`bash
+cp ${HOME}/.config/gitconfig/.gitconfig ${HOME}/.gitconfig
 ```
 
 ### SSH key
@@ -462,7 +523,7 @@ sudo ln -s /absolute/path/to/home/.config/gitconfig/.gitconfig /absolute/path/to
 - Create ssh key with following command (if default key name is fine, remove -f option):
 
 ```bash
-ssh-keygen -t ed25519 -C "your_email@example.com" -f ~/.ssh/your_key_name
+ssh-keygen -t ed25519 -C "your_email@example.com" -f ${HOME}/.ssh/your_key_name
 ```
 
 - Start an SSH Agent for the current shell:
@@ -474,7 +535,7 @@ ssh-agent -s
 - Add key to agent with the following command:
 
 ```bash
-ssh-add ~/.ssh/your_key_name
+ssh-add ${HOME}/.ssh/your_key_name
 ```
 
 ## Apps
@@ -522,7 +583,7 @@ brew install --cask itsycal
 - Make sure it starts at login.
 - Show month and day of week.
 
-### Alt-tab
+### Alt-tab (removed, don't use)
 
 - Install Alt-tab with homebrew:
 
@@ -616,6 +677,72 @@ brew install --cask homebrew/cask-versions/firefox-developer-edition
 - Remove Firefox View on the left side.
 - Remove flex space, pocket and other not needed things from toolbar and organize add-ons according to usage.
 
+### Orion
+
+- Install using homebrew...
+
+#### Settings
+
+##### General
+
+- Open with all non-private windows from last session.
+- Open new windows and tabs to start page.
+- Ask location for each download.
+- Automatically keep Orion up to date.
+- Set as default, if you want this to be the main browser.
+
+##### Appearance
+
+- Choose dark theme.
+- Show bookmarks bar.
+- Show icon and text in bookmarks bar.
+- Default font: FiraCode Nerd Font Mono.
+
+##### Tabs
+
+- Compact tab layout.
+- Use mini toolbar.
+
+##### Sync
+
+- Disable sync, if iCloud can't be used.
+
+##### Passwords
+
+- Disable Orion's keychain
+
+##### Privacy
+
+- Remove history after three months.
+- Remove cookies after two weeks.
+
+##### Advanced
+
+- Allow installation of 3rd party Chrome and Firefox extensions.
+
+#### Extensions
+
+##### From Firefox
+
+- Tabliss
+  - Move to overflow menu.
+- OneTab
+- Tab Session Manager
+- Dark Reader
+  - Inverted list only -> add sites when needed.
+- uBlock Origin
+- Privacy Badger
+- Decentraleyes
+- Move to overflow menu.
+- Add-on for the password manager/s you use.
+
+#### Toolbar
+
+- Remove website settings, share and tab overview buttons.
+- Add overflow menu.
+- Make sure bookmark and privacy buttons are in the toolbar.
+- Rearrange extensions.
+
 ### VS Code
 
 #### Settings
@@ -637,10 +764,22 @@ brew install --cask docker
 - Choose dark theme.
 - At least 4 cores, 8GB momery and 64GB disk.
 - Need to enable Kubernetes to use it.
+- Install kubelogin with homebrew:
+
+```bash
+brew install Azure/kubelogin/kubelogin
+```
+
 - Install helm with homebrew:
 
 ```bash
 brew install helm
+```
+
+- Add zsh completions for docker by adding following command to ~/.config/zsh/.zshrc:
+
+```bash
+source <(docker completion zsh)
 ```
 
 ### Wireshark
