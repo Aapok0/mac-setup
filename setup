@@ -146,14 +146,40 @@ echo; echo "Installing fzf-git from source to ~/.config/zsh/tools..."
 git clone https://github.com/junegunn/fzf-git.sh.git ${HOME}/.config/zsh/tools/fzf-git.sh
 
 echo; echo "Changing fdfind commands to fd in .zshrc..."
+sed -i "" "s/fdfind/fd/g" ${HOME}/.config/zsh/.zshrc
 
-echo; echo "Installing Catppuccing Mocha theme for batcat..."
+echo; echo "Installing Catppuccin Mocha theme for batcat..."
+mkdir -p "$(bat --config-dir)/themes"
+wget -P "$(bat --config-dir)/themes" https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Mocha.tmTheme
+bat cache --build
 
-echo; echo ""
+echo; echo "Creating symlink of .zshenv to home directory..."
+ln -s ${HOME}/.config/zsh/.zshenv ${HOME}/.zshenv
 
 # Neovim
+echo; echo "Installing Neovim..."
+brew install neovim
+
+echo; echo "Cloning Neovim configuration repository to ~/.config..."
+git clone https://github.com/Aapok0/nvim.git ${HOME}/.config/nvim
+
 # tmux
+echo; echo "Installing tmux..."
+brew install tmux
+
+echo; echo "Cloning tmux configuration repository to ~/.config..."
+git clone https://github.com/Aapok0/tmux.git ${HOME}/.config/tmux
+
+echo; echo "Installing tmux package manager..."
+git clone https://github.com/tmux-plugins/tpm ${HOME}/.tmux/plugins/tpm
+
 # tmux tools
+echo; echo "Cloning tmux-tools repository to ~/.config/tmux..."
+git clone https://github.com/Aapok0/tmux-tools.git ${HOME}/.config/tmux/tmux-tools
+
+echo; echo "Creating symbolic links for tmux tools..."
+sudo ln -s ${HOME}/.config/tmux/tmux-tools/tmuxz /usr/local/bin/tmuxz
+sudo ln -s ${HOME}/.config/tmux/tmux-tools/tmuxf /usr/local/bin/tmuxf
 
 # Add gitconfig
 echo; echo "Cloning gitconfig repository to ~/.config and copying gitconfig to ~..."
@@ -191,5 +217,118 @@ while true; do
 done
 
 # SSH key
+echo;
+while true; do
+    read -p "Do you want to create an SSH key? (Y/n): "
+    case $REPLY in
+        ""|"Y"|"y"|"Yes"|"yes")
+            echo;
+            read -p "Enter your email for the SSH key: " ssh_email
+            if [ -z "$ssh_email" ]; then
+                echo; echo "No email provided."
+                continue
+            fi
+            echo;
+            read -p "Enter key name (press Enter for default 'id_ed25519'): " key_name
+            if [ -z "$key_name" ]; then
+                key_name="id_ed25519"
+            fi
+            echo; echo "Creating SSH key..."
+            ssh-keygen -t ed25519 -C "$ssh_email" -f ${HOME}/.ssh/$key_name
+            echo; echo "Starting SSH agent..."
+            eval "$(ssh-agent -s)"
+            echo; echo "Adding SSH key to agent..."
+            ssh-add ${HOME}/.ssh/$key_name
+            echo; echo "SSH key has been created at ${HOME}/.ssh/$key_name"
+            break
+            ;;
+        "N"|"n"|"No"|"no")
+            echo; echo "Skipping SSH key creation."
+            break
+            ;;
+        *)
+            echo; echo "Invalid option."
+            ;;
+    esac
+done
+
 # Menu bar apps installation
+echo; echo "Installing menu bar apps: hiddenbar, stats, and itsycal..."
+brew install --cask hiddenbar stats itsycal
+
 # Installing rest of the apps
+echo;
+while true; do
+    read -p "Which password manager(s) do you want to install? (B)itwarden, (k)eepassxc, b(o)th, or (n)one: "
+    case $REPLY in
+        ""|"B"|"b"|"Bitwarden"|"bitwarden")
+            echo; echo "Installing Bitwarden..."
+            brew install --cask bitwarden
+            break
+            ;;
+        "K"|"k"|"Keepassxc"|"keepassxc")
+            echo; echo "Installing KeePassXC..."
+            brew install --cask keepassxc
+            break
+            ;;
+        "O"|"o"|"Both"|"both")
+            echo; echo "Installing Bitwarden and KeePassXC..."
+            brew install --cask bitwarden keepassxc
+            break
+            ;;
+        "N"|"n"|"None"|"none")
+            echo; echo "Skipping password manager installation."
+            break
+            ;;
+        *)
+            echo; echo "Invalid option."
+            ;;
+    esac
+done
+
+echo;
+while true; do
+    read -p "Which Firefox version do you want to install? (R)egular, (d)eveloper edition, (b)oth, or (n)one: "
+    case $REPLY in
+        ""|"R"|"r"|"Regular"|"regular")
+            echo; echo "Installing Firefox..."
+            brew install --cask firefox
+            break
+            ;;
+        "D"|"d"|"Developer"|"developer")
+            echo; echo "Installing Firefox Developer Edition..."
+            brew install --cask homebrew/cask-versions/firefox-developer-edition
+            break
+            ;;
+        "B"|"b"|"Both"|"both")
+            echo; echo "Installing Firefox and Firefox Developer Edition..."
+            brew install --cask firefox homebrew/cask-versions/firefox-developer-edition
+            break
+            ;;
+        "N"|"n"|"None"|"none")
+            echo; echo "Skipping Firefox installation."
+            break
+            ;;
+        *)
+            echo; echo "Invalid option."
+            ;;
+    esac
+done
+
+echo; echo "Installing Docker Desktop..."
+brew install --cask docker
+
+echo; echo "Installing kubelogin and helm..."
+brew install Azure/kubelogin/kubelogin helm
+
+echo; echo "Installing Wireshark..."
+brew install --cask wireshark
+
+echo; echo "Installing media apps: VLC and Spotify..."
+brew install --cask vlc spotify
+
+echo; echo "Installing Android File Transfer..."
+brew install --cask android-file-transfer
+
+echo; echo ""
+echo "Setup complete! Please review the README.md for manual configuration steps."
