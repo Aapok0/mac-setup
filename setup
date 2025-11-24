@@ -1,334 +1,298 @@
-#! /usr/bin/env sh
+#! /usr/bin/env zsh
 
-echo "Setting up Mac with certain set of apps and setting up terminal environment with certain CLI tools:"
+set -o pipefail
 
-# Check if Homebrew is installed and install if not
-if ! command -v brew >/dev/null 2>&1; then
-    echo; echo "Homebrew not found. Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    eval "$(/opt/homebrew/bin/brew shellenv)"
+timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
+LOGFILE="logs/${timestamp}_setup.log"
 
-    echo; echo "Tapping alternative cask versions..."
-    brew tap homebrew/cask-versions
-else
-    echo; echo "Homebrew is already installed. Updating Homebrew..."
-    brew update
-fi
+mkdir -p logs
+exec > >(tee -a "$LOGFILE") 2>&1
 
-# Install Raycast
-echo; echo "Installing Raycast (app to seacrch and run commands)..."
-brew install --cask raycast
+_log() {
+    local level="$1" msg="$2"
+    printf '%s [%s] %s\n' "$(date +"%Y-%m-%d %H:%M:%S")" "$level" "$msg"
+}
 
-# Choose and install window manager
-echo;
-while true; do
-    read -p 'Which window manager do you want to install, (R)ectangle, (y)abai, (b)oth or (n)one: ' -r
-    case $REPLY in
-        ""|"R"|"r"|"Rectangle"|"rectangle")
-            echo; echo "Installing Rectangle..."
-            brew install --cask rectangle
-            break
+_info() {
+    _log "INFO" "$*"
+    sleep 1
+}
+
+_error() {
+    _log "ERROR" "$*"
+    sleep 2
+}
+
+_warn() {
+    _log "WARN" "$*"
+    sleep 2
+}
+
+_echo_run() {
+    _log "RUN" "$*"
+    "$@" || _error "Command failed: $*"; return 1;
+}
+
+_clone_repo() {
+    local repo_url="$1"
+    local dest_path="$2"
+    local description="${3:-repository}"
+    local depth_flag="${4:+--depth=$4}"
+    _info "Cloning $description to $dest_path..."
+    _echo_run git clone $depth_flag "$repo_url" "$dest_path"
+}
+
+_ask_choice() {
+    local prompt="$1"
+    shift
+    while true; do
+        read -p "$prompt" -r
+        for option in "$@"; do
+            local keys="${option%%:*}"
+            local value="${option#*:}"
+            IFS='|' read -ra key_array <<< "$keys"
+            for key in "${key_array[@]}"; do
+                if [[ "$REPLY" == "$key" ]]; then
+                    echo "$value"
+                    return 0
+                fi
+            done
+        done
+        _warn "Invalid option"
+    done
+}
+
+_ask_input() {
+    local prompt="$1"
+    local var_name="$2"
+    while true; do
+        read -p "$prompt" -r input
+        if [[ -n "$input" ]]; then
+            echo "$input"
+            return 0
+        fi
+        _warn "No ${var_name} was provided"
+    done
+}
+
+main() {
+    _info "Setting up Mac with certain set of apps and setting up terminal environment with certain CLI tools"
+
+    # Check if Homebrew is installed and install if not
+    if ! command -v brew >/dev/null 2>&1; then
+        _info "Homebrew not found. Installing Homebrew..."
+        _log "RUN" "/bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+        if ! /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
+            _error "Failed to install Homebrew"
+            return 1
+        fi
+        _echo_run eval "$(/opt/homebrew/bin/brew shellenv)"
+
+        _info "Tapping alternative cask versions..."
+        _echo_run brew tap homebrew/cask-versions
+    else
+        _info "Homebrew is already installed. Updating Homebrew..."
+        _echo_run brew update
+    fi
+
+    # Install Raycast
+    _info "Installing Raycast (app to search and run commands)..."
+    _echo_run brew install --cask raycast
+
+    # Install Rectangle window manager
+    _info "Installing Rectangle window manager..."
+    _echo_run brew install --cask rectangle
+
+    # Install and  configure Kitty
+    _info "Installing kitty terminal emulator and Fira Code Nerd Font..."
+    _echo_run brew tap homebrew/cask-fonts
+    _echo_run brew install kitty --cask font-fira-code-nerd-font
+
+    _clone_repo "https://github.com/Aapok0/kitty.git" "$HOME/.config/kitty" "kitty configuration" 1
+
+    _info "Adding title bar back to help with mouse selection..."
+    _echo_run sed -i "" "^hide_window_decorations.*/hide_window_decorations no/" "$HOME/.config/kitty/kitty.conf"
+
+    # Configure ZSH
+
+    _clone_repo "https://github.com/Aapok0/zsh.git" "$HOME/.config/zsh" "ZSH configuration" 1
+
+    _info "Commenting out PATH variable rewrite..."
+    _echo_run sed -i '' '/^export PATH=/ s/^/#/' "$HOME/.config/zsh/.zshrc"
+
+    _info "Adding line to initialize Homebrew to .zshrc..."
+    _echo_run sed -i "" "/export VISUAL='nvim'/r"<(
+        echo ""
+        echo ""
+        echo "### HOMEBREW"
+        echo 'eval "$(/opt/homebrew/bin/brew shellenv)"'
+    ) "$HOME/.config/zsh/.zshrc"
+
+    _info "Installing coreutils and adding it to path to get dircolors working..."
+    _echo_run brew install coreutils
+    _echo_run sed -i "" "/eval \"\$(/opt/homebrew/bin/brew shellenv)\"/r"<(
+        echo ""
+        echo ""
+        echo "### COREUTILS FOR DIRCOLOR"
+        echo 'PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"'
+    ) "$HOME/.config/zsh/.zshrc"
+
+    # This was recently changed to...? Starship?
+    choice=$(_ask_choice "Which prompt theme would you like to install, (P)owerlevel10k or (s)paceship: " \
+        '|P|p|Powerlevel10k|powerlevel10k|Powelevel|powerlevel:powerlevel10k' \
+        'S|s|Spaceship|spaceship:spaceship')
+    
+    case "$choice" in
+        powerlevel10k)
+            _clone_repo "https://github.com/romkatv/powerlevel10k.git" "$HOME/.config/zsh/themes/powerlevel10k" "PowerLevel10k theme" 1
             ;;
-        "Y"|"y"|"Yabai"|"yabai")
-            echo; echo "Installing Yabai and skhd (for keyboard shortcuts)..."
-            brew install koekeishiya/formulae/yabai koekeishiya/formulae/skhd
-            echo; echo "Cloning Yabai configuration repository to ~/.config..."
-            git clone https://github.com/Aapok0/yabai.git ${HOME}/test/.config/yabai
-            echo; echo "Cloning skhd shortcuts repository to ~/.config..."
-            git clone https://github.com/Aapok0/skhd.git ${HOME}/.config/skhd
-            echo; echo "Starting Yabai service..."
-            echo "yabai --start-service"
-            echo; echo "Starting skhd service..."
-            echo "skhd --start-service"
-            break
-            ;;
-        "B"|"b"|"Both"|"both")
-            echo; echo "Installing Rectangle..."
-            brew install --cask rectangle
-
-            echo; echo "Installing Yabai and skhd (for keyboard shortcuts)..."
-            brew install koekeishiya/formulae/yabai koekeishiya/formulae/skhd
-            echo; echo "Cloning Yabai configuration repository to ~/.config..."
-            git clone https://github.com/Aapok0/yabai.git ${HOME}/test/.config/yabai
-            echo; echo "Cloning skhd shortcuts repository to ~/.config..."
-            git clone https://github.com/Aapok0/skhd.git ${HOME}/test/.config/skhd
-            echo; echo "Starting Yabai service..."
-            echo "yabai --start-service"
-            echo; echo "Starting skhd service..."
-            echo "skhd --start-service"
-            break
-            ;;
-        "N"|"n"|"None"|"none")
-            echo; echo "Not installing any window manager."
-            break
-            ;;
-        *)
-            echo; echo "Invalid option for window manager."
-            ;;
-    esac
-done
-
-# Install and  configure Kitty
-echo; echo "Installing kitty terminal emulator..."
-brew install kitty
-
-echo; echo "Cloning kitty configuration repository to ~/.config..."
-git clone https://github.com/Aapok0/kitty.git ${HOME}/.config/kitty
-
-echo; echo "Installing the font used in the configuration (Fira Code Nerd Font)..."
-brew tap homebrew/cask-fonts
-brew install --cask font-fira-code-nerd-font
-
-echo; echo "Making kitty windows draggable..."
-echo "Changing kitty configuration 'hide_window_decorations' for 'yes' to 'titlebar-only'..."
-sed -i "" "s/hide_window_decorations yes/hide_window_decorations titlebar-only/" ${HOME}/.config/kitty/kiity.conf
-echo "Running following setting change: 'defaults write -g NSWindowShouldDragOnGesture YES'..."
-defaults write -g NSWindowShouldDragOnGesture YES
-
-# Configure ZSH
-
-echo; echo "Cloning ZSH configuration repository to ~/.config..."
-git clone https://github.com/Aapok0/zsh.git ${HOME}/.config/zsh
-
-echo; echo "Commenting out PATH variable rewrite..."
-
-```bash
-sed -i '' '/^export PATH=/ s/^/#/' ${HOME}/.config/zsh/.zshrc
-```
-
-echo; echo "Adding line to initialize Homebrew to .zshrc..."
-sed -i "" "/export VISUAL='nvim'/r"<(
-    echo ""
-    echo ""
-    echo "### HOMEBREW"
-    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"'
-) ${HOME}/.config/zsh/.zshrc
-
-echo; echo "Installing coreutils and adding it to path to get dircolors working..."
-brew install coreutils
-sed -i "" "/eval \"\$(/opt/homebrew/bin/brew shellenv)\"/r"<(
-    echo ""
-    echo ""
-    echo "### COREUTILS FOR DIRCOLOR"
-    echo 'PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"'
-) ${HOME}/.config/zsh/.zshrc
-
-# This was recently changed to...? Starship?
-echo;
- while true; do
-    read -p "Which prompt theme would you like to install, (P)owerlevel10k or (s)paceship: "
-    case $REPLY in
-        ""|"P"|"p"|"Powerlevel10k"|"powerlevel10k"|"Powelevel"|"powerlevel")
-            echo; echo "Cloning PowerLevel10k theme to ~/.config/zsh/themes~..."
-            git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${HOME}/.config/zsh/themes/powerlevel10k
-            break
-            ;;
-        "S"|"s"|"Spaceship"|"spaceship")
-            echo; echo "Cloning Spaceship theme to ~/.config/zsh/themes~..."
-            git clone https://github.com/spaceship-prompt/spaceship-prompt.git ${HOME}/.config/zsh/themes/spaceship-prompt
-            break
-            ;;
-        *)
-            echo; echo "Invalid option for prompt theme."
-            ;;
-    esac
-done
-
-echo; echo "Installing ZSH plugins Fast-Syntax-Highlighting, ZSH-Autosuggestions and ZSH-Completions from source to ~/.config/zsh/plugins..."
-git clone https://github.com/zdharma-continuum/fast-syntax-highlighting.git ${HOME}/.config/zsh/plugins/fast-syntax-highlighting
-git clone https://github.com/zsh-users/zsh-autosuggestions.git ${HOME}/.config/zsh/plugins/zsh-autosuggestions
-git clone https://github.com/zsh-users/zsh-completions.git ${HOME}/.config/zsh/plugins/zsh-completions
-
-echo; echo "Installing following CLI tools: wget, python3, neovim, tmux, eza, batcat, htop, ripgrep, xclip, zoxide, fzf, fd, tfswitch, telnet, tcptraceroute, azure cli, github cli, ffmpeg, tlrc, thefuck and nb..."
-brew install wget python3 node neovim tmux eza bat htop ripgrep xclip zoxide fzf fd warrensbox/tap/tfswitch telnet tcptraceroute azure-cli gh ffmpeg tlrc thefuck nb
-
-echo; echo "Installing fzf-git from source to ~/.config/zsh/tools..."
-git clone https://github.com/junegunn/fzf-git.sh.git ${HOME}/.config/zsh/tools/fzf-git.sh
-
-echo; echo "Changing fdfind commands to fd in .zshrc..."
-sed -i "" "s/fdfind/fd/g" ${HOME}/.config/zsh/.zshrc
-
-echo; echo "Installing Catppuccin Mocha theme for batcat..."
-mkdir -p "$(bat --config-dir)/themes"
-wget -P "$(bat --config-dir)/themes" https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Mocha.tmTheme
-bat cache --build
-
-echo; echo "Creating symlink of .zshenv to home directory..."
-ln -s ${HOME}/.config/zsh/.zshenv ${HOME}/.zshenv
-
-# Neovim
-echo; echo "Installing Neovim..."
-brew install neovim
-
-echo; echo "Cloning Neovim configuration repository to ~/.config..."
-git clone https://github.com/Aapok0/nvim.git ${HOME}/.config/nvim
-
-# tmux
-echo; echo "Installing tmux..."
-brew install tmux
-
-echo; echo "Cloning tmux configuration repository to ~/.config..."
-git clone https://github.com/Aapok0/tmux.git ${HOME}/.config/tmux
-
-echo; echo "Installing tmux package manager..."
-git clone https://github.com/tmux-plugins/tpm ${HOME}/.tmux/plugins/tpm
-
-# tmux tools
-echo; echo "Cloning tmux-tools repository to ~/.config/tmux..."
-git clone https://github.com/Aapok0/tmux-tools.git ${HOME}/.config/tmux/tmux-tools
-
-echo; echo "Creating symbolic links for tmux tools..."
-sudo ln -s ${HOME}/.config/tmux/tmux-tools/tmuxz /usr/local/bin/tmuxz
-sudo ln -s ${HOME}/.config/tmux/tmux-tools/tmuxf /usr/local/bin/tmuxf
-
-# Add gitconfig
-echo; echo "Cloning gitconfig repository to ~/.config and copying gitconfig to ~..."
-git clone https://github.com/Aapok0/gitconfig.git ${HOME}/.config/gitconfig
-cp ${HOME}/.config/gitconfig/.gitconfig ${HOME}/.gitconfig
-
-while true; do
-    echo;
-    read -p "Give your first and last name to be set for your name in git: "
-    case $REPLY in
-        "")
-            echo; echo "No name was given."
-            continue
-            ;;
-        *)
-            sed -i "" "s/name =/name = $REPLY/" ${HOME}/.gitconfig
-            echo; echo "Name $REPLY has been inserted into gitconfig."
-            break
-    esac
-done
-
-while true; do
-    echo;
-    read -p "Give your email to be set as your email in git: "
-    case $REPLY in
-        "")
-            echo; echo "No email was given."
-            continue
-            ;;
-        *)
-            sed -i "" "s/email =/email = $REPLY/" ${HOME}/.gitconfig
-            echo; echo "Email $REPLY has been inserted into gitconfig."
-            break
-    esac
-done
-
-# SSH key
-echo;
-while true; do
-    read -p "Do you want to create an SSH key? (Y/n): "
-    case $REPLY in
-        ""|"Y"|"y"|"Yes"|"yes")
-            echo;
-            read -p "Enter your email for the SSH key: " ssh_email
-            if [ -z "$ssh_email" ]; then
-                echo; echo "No email provided."
-                continue
-            fi
-            echo;
-            read -p "Enter key name (press Enter for default 'id_ed25519'): " key_name
-            if [ -z "$key_name" ]; then
-                key_name="id_ed25519"
-            fi
-            echo; echo "Creating SSH key..."
-            ssh-keygen -t ed25519 -C "$ssh_email" -f ${HOME}/.ssh/$key_name
-            echo; echo "Starting SSH agent..."
-            eval "$(ssh-agent -s)"
-            echo; echo "Adding SSH key to agent..."
-            ssh-add ${HOME}/.ssh/$key_name
-            echo; echo "SSH key has been created at ${HOME}/.ssh/$key_name"
-            break
-            ;;
-        "N"|"n"|"No"|"no")
-            echo; echo "Skipping SSH key creation."
-            break
-            ;;
-        *)
-            echo; echo "Invalid option."
+        spaceship)
+            _clone_repo "https://github.com/spaceship-prompt/spaceship-prompt.git" "$HOME/.config/zsh/themes/spaceship-prompt" "Spaceship theme" 1
             ;;
     esac
-done
 
-# Menu bar apps installation
-echo; echo "Installing menu bar apps: hiddenbar, stats, and itsycal..."
-brew install --cask hiddenbar stats itsycal
+    _info "Installing ZSH plugins Fast-Syntax-Highlighting, ZSH-Autosuggestions and ZSH-Completions..."
+    _clone_repo "https://github.com/zdharma-continuum/fast-syntax-highlighting.git" "$HOME/.config/zsh/plugins/fast-syntax-highlighting" "fast-syntax-highlighting" 1
+    _clone_repo "https://github.com/zsh-users/zsh-autosuggestions.git" "$HOME/.config/zsh/plugins/zsh-autosuggestions" "zsh-autosuggestions" 1
+    _clone_repo "https://github.com/zsh-users/zsh-completions.git" "$HOME/.config/zsh/plugins/zsh-completions" "zsh-completions" 1
 
-# Installing rest of the apps
-echo;
-while true; do
-    read -p "Which password manager(s) do you want to install? (B)itwarden, (k)eepassxc, b(o)th, or (n)one: "
-    case $REPLY in
-        ""|"B"|"b"|"Bitwarden"|"bitwarden")
-            echo; echo "Installing Bitwarden..."
-            brew install --cask bitwarden
-            break
+    _info "Installing CLI tools: wget, python3, neovim, tmux, eza, bat, htop, ripgrep, xclip, zoxide, fzf, fd, tfswitch, telnet, tcptraceroute, azure-cli, gh, ffmpeg, tlrc, thefuck and nb..."
+    _echo_run brew install \
+        wget python3 node neovim tmux eza bat htop ripgrep xclip zoxide fzf fd \
+        warrensbox/tap/tfswitch telnet tcptraceroute azure-cli gh ffmpeg tlrc thefuck nb
+
+    _clone_repo "https://github.com/junegunn/fzf-git.sh.git" "$HOME/.config/zsh/tools/fzf-git.sh" "fzf-git" 1
+
+    _info "Changing fdfind commands to fd in .zshrc..."
+    _echo_run sed -i "" "s/fdfind/fd/g" "$HOME/.config/zsh/.zshrc"
+
+    _info "Installing Catppuccin Mocha theme for bat..."
+    _echo_run mkdir -p "$(bat --config-dir)/themes"
+    _echo_run wget -P "$(bat --config-dir)/themes" https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Mocha.tmTheme
+    _echo_run bat cache --build
+
+    _info "Creating symlink of .zshenv to home directory..."
+    _echo_run ln -s "$HOME/.config/zsh/.zshenv" "$HOME/.zshenv"
+
+    # Neovim
+    _info "Installing Neovim..."
+    _echo_run brew install neovim
+    _clone_repo "https://github.com/Aapok0/nvim.git" "$HOME/.config/nvim" "Neovim configuration" 1
+
+    # tmux
+    _info "Installing tmux..."
+    _echo_run brew install tmux
+    _clone_repo "https://github.com/Aapok0/tmux.git" "$HOME/.config/tmux" "tmux configuration" 1
+    _clone_repo "https://github.com/tmux-plugins/tpm" "$HOME/.tmux/plugins/tpm" "tmux package manager" 1
+    _clone_repo "https://github.com/Aapok0/tmux-tools.git" "$HOME/.config/tmux/tmux-tools" "tmux-tools" 1
+
+    _info "Creating symbolic links for tmux tools..."
+    _echo_run sudo ln -s "$HOME/.config/tmux/tmux-tools/tmuxz" /usr/local/bin/tmuxz
+    _echo_run sudo ln -s "$HOME/.config/tmux/tmux-tools/tmuxf" /usr/local/bin/tmuxf
+
+    # Add gitconfig
+    _clone_repo "https://github.com/Aapok0/gitconfig.git" "$HOME/.config/gitconfig" "gitconfig" 1
+    _info "Copying gitconfig to home directory..."
+    _echo_run cp "$HOME/.config/gitconfig/.gitconfig" "$HOME/.gitconfig"
+
+    git_name=$(_ask_input "Give your first and last name to be set for your name in git: " "name")
+    _echo_run sed -i "" "s/name =/name = $git_name/" "$HOME/.gitconfig"
+    _info "Name '$git_name' has been inserted into gitconfig"
+
+    git_email=$(_ask_input "Give your email to be set as your email in git: " "email")
+    _echo_run sed -i "" "s/email =/email = $git_email/" "$HOME/.gitconfig"
+    _info "Email '$git_email' has been inserted into gitconfig"
+
+    # SSH key
+    choice=$(_ask_choice "Do you want to create an SSH key? (Y/n): " \
+        '|Y|y|Yes|yes:yes' \
+        'N|n|No|no:no')
+    
+    if [[ "$choice" == "yes" ]]; then
+        ssh_email=$(_ask_input "Enter your email for the SSH key: " "email")
+        read -p "Enter key name (press Enter for default 'id_ed25519'): " -r key_name
+        key_name="${key_name:-id_ed25519}"
+        
+        _info "Creating SSH key..."
+        _echo_run ssh-keygen -t ed25519 -C "$ssh_email" -f "$HOME/.ssh/$key_name"
+        _info "Starting SSH agent..."
+        eval "$(ssh-agent -s)"
+        _info "Adding SSH key to agent..."
+        _echo_run ssh-add "$HOME/.ssh/$key_name"
+        _info "SSH key has been created at $HOME/.ssh/$key_name"
+    else
+        _info "Skipping SSH key creation"
+    fi
+
+    # Menu bar apps installation
+    _info "Installing menu bar apps: hiddenbar, stats, and itsycal..."
+    _echo_run brew install --cask hiddenbar stats itsycal
+
+    # Installing rest of the apps
+    choice=$(_ask_choice "Which password manager(s) do you want to install? (B)itwarden, (k)eepassxc, b(o)th, or (n)one: " \
+        '|B|b|Bitwarden|bitwarden:bitwarden' \
+        'K|k|Keepassxc|keepassxc:keepassxc' \
+        'O|o|Both|both:both' \
+        'N|n|None|none:none')
+    
+    case "$choice" in
+        bitwarden)
+            _info "Installing Bitwarden..."
+            _echo_run brew install --cask bitwarden
             ;;
-        "K"|"k"|"Keepassxc"|"keepassxc")
-            echo; echo "Installing KeePassXC..."
-            brew install --cask keepassxc
-            break
+        keepassxc)
+            _info "Installing KeePassXC..."
+            _echo_run brew install --cask keepassxc
             ;;
-        "O"|"o"|"Both"|"both")
-            echo; echo "Installing Bitwarden and KeePassXC..."
-            brew install --cask bitwarden keepassxc
-            break
+        both)
+            _info "Installing Bitwarden and KeePassXC..."
+            _echo_run brew install --cask bitwarden keepassxc
             ;;
-        "N"|"n"|"None"|"none")
-            echo; echo "Skipping password manager installation."
-            break
-            ;;
-        *)
-            echo; echo "Invalid option."
+        none)
+            _info "Skipping password manager installation"
             ;;
     esac
-done
 
-echo;
-while true; do
-    read -p "Which Firefox version do you want to install? (R)egular, (d)eveloper edition, (b)oth, or (n)one: "
-    case $REPLY in
-        ""|"R"|"r"|"Regular"|"regular")
-            echo; echo "Installing Firefox..."
-            brew install --cask firefox
-            break
+    choice=$(_ask_choice "Which Firefox version do you want to install? (R)egular, (d)eveloper edition, (b)oth, or (n)one: " \
+        '|R|r|Regular|regular:regular' \
+        'D|d|Developer|developer:developer' \
+        'B|b|Both|both:both' \
+        'N|n|None|none:none')
+    
+    case "$choice" in
+        regular)
+            _info "Installing Firefox..."
+            _echo_run brew install --cask firefox
             ;;
-        "D"|"d"|"Developer"|"developer")
-            echo; echo "Installing Firefox Developer Edition..."
-            brew install --cask homebrew/cask-versions/firefox-developer-edition
-            break
+        developer)
+            _info "Installing Firefox Developer Edition..."
+            _echo_run brew install --cask homebrew/cask-versions/firefox-developer-edition
             ;;
-        "B"|"b"|"Both"|"both")
-            echo; echo "Installing Firefox and Firefox Developer Edition..."
-            brew install --cask firefox homebrew/cask-versions/firefox-developer-edition
-            break
+        both)
+            _info "Installing Firefox and Firefox Developer Edition..."
+            _echo_run brew install --cask firefox homebrew/cask-versions/firefox-developer-edition
             ;;
-        "N"|"n"|"None"|"none")
-            echo; echo "Skipping Firefox installation."
-            break
-            ;;
-        *)
-            echo; echo "Invalid option."
+        none)
+            _info "Skipping Firefox installation"
             ;;
     esac
-done
 
-echo; echo "Installing Docker Desktop..."
-brew install --cask docker
+    _info "Installing Docker Desktop..."
+    _echo_run brew install --cask docker
 
-echo; echo "Installing kubelogin and helm..."
-brew install Azure/kubelogin/kubelogin helm
+    _info "Installing kubelogin and helm..."
+    _echo_run brew install Azure/kubelogin/kubelogin helm
 
-echo; echo "Installing Wireshark..."
-brew install --cask wireshark
+    _info "Installing Wireshark..."
+    _echo_run brew install --cask wireshark
 
-echo; echo "Installing media apps: VLC and Spotify..."
-brew install --cask vlc spotify
+    _info "Installing media apps: VLC and Spotify..."
+    _echo_run brew install --cask vlc spotify
 
-echo; echo "Installing Android File Transfer..."
-brew install --cask android-file-transfer
+    _info "Installing Android File Transfer..."
+    _echo_run brew install --cask android-file-transfer
 
-echo; echo ""
-echo "Setup complete! Please review the README.md for manual configuration steps."
+    _info "Setup complete! Please review the README.md for manual configuration steps"
+}
+
+main || { _error "Setup script failed!"; exit 1; }

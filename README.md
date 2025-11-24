@@ -126,14 +126,14 @@ defaults write com.apple.Dock showhidden -bool TRUE && killall Dock
 defaults write com.apple.screencapture type jpg
 ```
 
-- Change screenshot default location `${HOME}/Pictures/Screenshots` with the following commands (default is Desktop):
+- Change screenshot default location `$HOME/Pictures/Screenshots` with the following commands (default is Desktop):
 
 ```bash
-mkdir ${HOME}/Pictures/Screenshots
+mkdir $HOME/Pictures/Screenshots
 ```
 
 ```bash
-defaults write com.apple.screencapture location "${HOME}/Pictures/Screenshots"
+defaults write com.apple.screencapture location "$HOME/Pictures/Screenshots"
 ```
 
 ### iCloud
@@ -187,13 +187,13 @@ brew tap homebrew/cask-versions
 - Create Workspace directory to `$HOME/`:
 
 ```bash
-mkdir ${HOME}/Workspace
+mkdir $HOME/Workspace
 ```
 
-- Clone dotfiles repository to `${HOME}/Workspace/` for configurations:
+- Clone dotfiles repository to `$HOME/Workspace/` for configurations:
 
 ```bash
-git clone https://github.com/Aapok0/dotfiles.git ${HOME}/Workspace/dotfiles
+git clone https://github.com/Aapok0/dotfiles.git $HOME/Workspace/dotfiles
 ```
 
 - Install stow with homebrew:
@@ -219,47 +219,6 @@ brew install --cask raycast
 
 ## Window management
 
-### Yabai - Tiling window manager
-
-- Had some issues using this with a dock so need to figure things out or reconsider using this.
-- Install Yabai with homebrew:
-
-```bash
-brew install koekeishiya/formulae/yabai
-```
-
-- Stow Yabai configuration to `${HOME}` from `$HOME/Workspace/dotfiles`:
-
-```bash
-cd ${HOME}/Workspace/dotfiles && \
-stow -vRt ${HOME} yabai
-```
-
-- To set shortcuts for Yabai, install skhd with homebrew:
-
-```bash
-brew install koekeishiya/formulae/skhd
-```
-
-- Stow skhd configuration to `${HOME}` from `$HOME/Workspace/dotfiles`
-
-```bash
-cd ${HOME}/Workspace/dotfiles && \
-stow -vRt ${HOME} skhd
-```
-
-- Start skhd service with the following command (and give permissions, if needed):
-
-```bash
-skhd --start-service
-```
-
-- Start skhd service with the following command (and give permissions, if needed):
-
-```bash
-yabai --start-service
-```
-
 ### Rectangle - Window snapping tool
 
 - Install Rectangle with homebrew:
@@ -280,11 +239,11 @@ brew install --cask rectangle
 brew install kitty
 ```
 
-- Stow kitty configuration to `${HOME}` from `${HOME}/Workspace/dotfiles`:
+- Stow kitty configuration to `$HOME` from `$HOME/Workspace/dotfiles`:
 
 ```bash
-cd ${HOME}/Workspace/dotfiles && \
-stow -vRt ${HOME} kitty
+cd $HOME/Workspace/dotfiles && \
+stow -vRt $HOME kitty
 ```
 
 - The configuration uses Fira Code Nerd Font. You can install it with homebrew:
@@ -297,26 +256,22 @@ brew tap homebrew/cask-fonts
 brew install --cask font-fira-code-nerd-font
 ```
 
-- Some extra steps are required to make kitty draggable. Add or modify the following in the configuration and then run the following command:
+- Decorations should be brought back to make window draggable and to be able to select with mouse from the top row:
 
 ```
-hide_window_decorations titlebar-only
-```
-
-```bash
-defaults write -g NSWindowShouldDragOnGesture YES
+hide_window_decorations none
 ```
 
 ### ZSH
 
-- Clone ZSH configuration to `${HOME}/.config` from [here](https://github.com/Aapok0/zsh):
+- Clone ZSH configuration to `$HOME/.config` from [here](https://github.com/Aapok0/zsh):
 
 ```bash
-git clone https://github.com/Aapok0/zsh.git ${HOME}/.config/zsh
+git clone https://github.com/Aapok0/zsh.git $HOME/.config/zsh
 ```
 
-- Comment out the PATH variable rewrite in `${HOME}/.config/zsh/.zshrc`.
-- Add the following line to `${HOME}/.config/zsh/.zshrc` to get homebrew and the installed apps to work (after DEFAULT EDITOR):
+- Comment out the PATH variable rewrite in `$HOME/.config/zsh/.zshrc`.
+- Add the following line to `$HOME/.config/zsh/.zshrc` to get homebrew and the installed apps to work (after DEFAULT EDITOR):
 
 ```bash
 ### HOMEBREW
@@ -329,7 +284,7 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 brew install coreutils
 ```
 
-- Add the following line to `${HOME}/.config/zsh/.zshrc` to add coreutils to PATH (add before COMPLETIONS):
+- Add the following line to `$HOME/.config/zsh/.zshrc` to add coreutils to PATH (add before COMPLETIONS):
 
 ```bash
 ### COREUTILS FOR DIRCOLOR
@@ -340,29 +295,29 @@ PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"
   - PowerLevel10k currently in use.
 
 ```bash
-git clone https://github.com/spaceship-prompt/spaceship-prompt.git ${HOME}/.config/zsh/themes/spaceship-prompt
+git clone https://github.com/spaceship-prompt/spaceship-prompt.git $HOME/.config/zsh/themes/spaceship-prompt
 ```
 
 ```bash
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${HOME}/.config/zsh/themes/powerlevel10k
+git clone --depth=1 https://github.com/romkatv/powerlevel10k.git $HOME/.config/zsh/themes/powerlevel10k
 ```
 
 - Install Fast-Syntax-Highlighting plugin:
 
 ```bash
-git clone https://github.com/zdharma-continuum/fast-syntax-highlighting.git ${HOME}/.config/zsh/plugins/fast-syntax-highlighting
+git clone https://github.com/zdharma-continuum/fast-syntax-highlighting.git $HOME/.config/zsh/plugins/fast-syntax-highlighting
 ```
 
 - Install ZSH-Autosuggestions plugin:
 
 ```bash
-git clone https://github.com/zsh-users/zsh-autosuggestions.git ${HOME}/.config/zsh/plugins/zsh-autosuggestions
+git clone https://github.com/zsh-users/zsh-autosuggestions.git $HOME/.config/zsh/plugins/zsh-autosuggestions
 ```
 
 - Install ZSH-Completions plugin:
 
 ```bash
-git clone https://github.com/zsh-users/zsh-completions.git ${HOME}/.config/zsh/plugins/zsh-completions
+git clone https://github.com/zsh-users/zsh-completions.git $HOME/.config/zsh/plugins/zsh-completions
 ```
 
 - Install wget, python3, neovim, tmux, eza, batcat, htop, ripgrep, xclip, zoxide, fzf, fd, tfswitch, telnet, azure cli, github cli, ffmpeg, tlrc, thefuck and nb with homebrew:
@@ -374,7 +329,7 @@ brew install wget python3 node neovim tmux eza bat htop ripgrep xclip zoxide fzf
 - Install fzf-git from source:
 
 ```bash
-git clone https://github.com/junegunn/fzf-git.sh.git ${HOME}/.config/zsh/tools/fzf-git.sh
+git clone https://github.com/junegunn/fzf-git.sh.git $HOME/.config/zsh/tools/fzf-git.sh
 ```
 
 - Change fzf tool init to `eval "$(fzf --zsh)"`
@@ -389,7 +344,7 @@ bat cache --build
 - Change nb default directory, if you want (default is ~/.nb):
 
 ```bash
-nb settings set nb_dir ${HOME}/Workspace/notes
+nb settings set nb_dir $HOME/Workspace/notes
 ```
 
 - Install pyenv and install latest python
@@ -418,12 +373,12 @@ pyenv global <latest version here>
 - Create a Python virtual environment and install ansible:
 
 ```bash
-mdkir ${HOME}/Python
+mdkir $HOME/Python
 ```
 
 ```bash
-python -m venv ${HOME}/Python/general
-python -m venv ${HOME}/Python/ansible
+python -m venv $HOME/Python/general
+python -m venv $HOME/Python/ansible
 ```
 
 - Setup python environments:
@@ -437,26 +392,26 @@ source ~/Python/general/bin/activate
 pip install --upgrade pip
 ```
 
-- Remove unnecessary tools from the end of `${HOME}/.config/zsh/.zshrc`.
+- Remove unnecessary tools from the end of `$HOME/.config/zsh/.zshrc`.
 
-- Create symlink of .zshenv to home directory have zsh use `${HOME}/.config/zsh` as the directory for zsh files:
+- Create symlink of .zshenv to home directory have zsh use `$HOME/.config/zsh` as the directory for zsh files:
 
 ```bash
-ln -s ${HOME}/.config/zsh/.zshenv ${HOME}/.zshenv
+ln -s $HOME/.config/zsh/.zshenv $HOME/.zshenv
 ```
 
 - Source .zshenv and .zshrc:
 
 ```bash
-source ${HOME}/.zshenv && source ${HOME}/.config/zsh/.zshrc
+source $HOME/.zshenv && source $HOME/.config/zsh/.zshrc
 ```
 
 ### Neovim
 
-- Clone configuration to `${HOME}/.config` from [here](https://github.com/Aapok0/nvim):
+- Clone configuration to `$HOME/.config` from [here](https://github.com/Aapok0/nvim):
 
 ```bash
-git clone https://github.com/Aapok0/nvim.git ${HOME}/.config/nvim
+git clone https://github.com/Aapok0/nvim.git $HOME/.config/nvim
 ```
 - Some of the plugins and features require npm, xclip and ripgrep, but those have been installed earlier.
 - Neovim will install all the plugins and lsp servers, when you first open it.
@@ -464,16 +419,16 @@ git clone https://github.com/Aapok0/nvim.git ${HOME}/.config/nvim
 
 ### tmux
 
-- Clone configuration to `${HOME}/config` from [here](https://github.com/Aapok0/tmux):
+- Clone configuration to `$HOME/config` from [here](https://github.com/Aapok0/tmux):
 
 ```bash
-git clone https://github.com/Aapok0/tmux.git ${HOME}/.config/tmux
+git clone https://github.com/Aapok0/tmux.git $HOME/.config/tmux
 ```
 
 - Install tmux package manager with the following command:
 
 ```bash
-git clone https://github.com/tmux-plugins/tpm ${HOME}/.tmux/plugins/tpm
+git clone https://github.com/tmux-plugins/tpm $HOME/.tmux/plugins/tpm
 ```
 
 - Open tmux session and press `prefix + I` to install the plugins defined in the configuration.
@@ -481,28 +436,28 @@ git clone https://github.com/tmux-plugins/tpm ${HOME}/.tmux/plugins/tpm
 #### tmux tools
 
 - Requires tmux, zoxide and fzf, which were installed earlier.
-- Clone the tools to `${HOME}/.config/tmux` from [here](https://github.com/Aapok0/tmux-tools):
+- Clone the tools to `$HOME/.config/tmux` from [here](https://github.com/Aapok0/tmux-tools):
 
 ```bash
-git clone https://github.com/Aapok0/tmux-tools.git ${HOME}/.config/tmux/tmux-tools
+git clone https://github.com/Aapok0/tmux-tools.git $HOME/.config/tmux/tmux-tools
 ```
 
 - Make symbolic links of the tools to a bin in path:
 
 ```bash
-sudo ln -s ${HOME}/.config/tmux/tmux-tools/tmuxz /usr/local/bin/tmuxz
+sudo ln -s $HOME/.config/tmux/tmux-tools/tmuxz /usr/local/bin/tmuxz
 ```
 
 ```bash
-sudo ln -s ${HOME}/.config/tmux/tmux-tools/tmuxf /usr/local/bin/tmuxf
+sudo ln -s $HOME/.config/tmux/tmux-tools/tmuxf /usr/local/bin/tmuxf
 ```
 
 ### Gitconfig
 
-- Clone configuration to `${HOME}/.config/gitconfig` from [here](https://github.com/Aapok0/gitconfig):
+- Clone configuration to `$HOME/.config/gitconfig` from [here](https://github.com/Aapok0/gitconfig):
 
 ```bash
-git clone https://github.com/Aapok0/gitconfig.git ${HOME}/.config/gitconfig
+git clone https://github.com/Aapok0/gitconfig.git $HOME/.config/gitconfig
 ```
 
 - Install git-delta with homebrew:
@@ -515,7 +470,7 @@ brew install git-delta
 
 ``
 `bash
-cp ${HOME}/.config/gitconfig/.gitconfig ${HOME}/.gitconfig
+cp $HOME/.config/gitconfig/.gitconfig $HOME/.gitconfig
 ```
 
 ### SSH key
@@ -523,7 +478,7 @@ cp ${HOME}/.config/gitconfig/.gitconfig ${HOME}/.gitconfig
 - Create ssh key with following command (if default key name is fine, remove -f option):
 
 ```bash
-ssh-keygen -t ed25519 -C "your_email@example.com" -f ${HOME}/.ssh/your_key_name
+ssh-keygen -t ed25519 -C "your_email@example.com" -f $HOME/.ssh/your_key_name
 ```
 
 - Start an SSH Agent for the current shell:
@@ -535,7 +490,7 @@ ssh-agent -s
 - Add key to agent with the following command:
 
 ```bash
-ssh-add ${HOME}/.ssh/your_key_name
+ssh-add $HOME/.ssh/your_key_name
 ```
 
 ## Apps
