@@ -1,4 +1,4 @@
-#! /usr/bin/env zsh
+#!/usr/bin/env zsh
 
 set -o pipefail
 
@@ -10,12 +10,17 @@ exec > >(tee -a "$LOGFILE") 2>&1
 
 _log() {
     local level="$1" msg="$2"
-    printf '%s [%s] %s\n' "$(date +"%Y-%m-%d %H:%M:%S")" "$level" "$msg"
+    printf "[%s] %s: %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$level" "$msg"
 }
 
 _info() {
     _log "INFO" "$*"
     sleep 1
+}
+
+_info_long() {
+    _log "INFO" "$*"
+    sleep 2
 }
 
 _error() {
@@ -25,32 +30,38 @@ _error() {
 
 _warn() {
     _log "WARN" "$*"
-    sleep 2
 }
 
 _echo_run() {
     _log "RUN" "$*"
-    "$@" || _error "Command failed: $*"; return 1;
+    "$@" || { _error "Command failed: $*"; return 1; }
 }
 
-_clone_repo() {
-    local repo_url="$1"
-    local dest_path="$2"
-    local description="${3:-repository}"
-    local depth_flag="${4:+--depth=$4}"
-    _info "Cloning $description to $dest_path..."
-    _echo_run git clone $depth_flag "$repo_url" "$dest_path"
+_to_ssh_url() {
+    local url=$1
+    echo "$url" | sed 's|https://github\.com/|git@github.com:|'
+}
+
+_set_ssh_remote() {
+    local repo_path=$1
+    cd "$repo_path" || return 1
+    local https_url=$(git config --get remote.origin.url)
+    local ssh_url=$(_to_ssh_url "$https_url")
+    if [ "$https_url" != "$ssh_url" ]; then
+        _echo_run git remote set-url origin "$ssh_url"
+    fi
+    cd - > /dev/null || return 1
 }
 
 _ask_choice() {
     local prompt="$1"
     shift
     while true; do
-        read -p "$prompt" -r
+        read "REPLY?$prompt"
         for option in "$@"; do
             local keys="${option%%:*}"
             local value="${option#*:}"
-            IFS='|' read -ra key_array <<< "$keys"
+            local key_array=("${(@s:|:)keys}")
             for key in "${key_array[@]}"; do
                 if [[ "$REPLY" == "$key" ]]; then
                     echo "$value"
@@ -62,179 +73,100 @@ _ask_choice() {
     done
 }
 
-_ask_input() {
-    local prompt="$1"
-    local var_name="$2"
-    while true; do
-        read -p "$prompt" -r input
-        if [[ -n "$input" ]]; then
-            echo "$input"
-            return 0
-        fi
-        _warn "No ${var_name} was provided"
-    done
+_setup_git_config() {
+    local config_dir="$HOME/.config/git"
+    local config_file="$config_dir/config.local"
+
+    [ -d "$config_dir" ] || _echo_run mkdir -p "$config_dir"
+
+    if [ -f "$config_file" ]; then
+        _info "Git config already exists at $config_file"
+        return 0
+    fi
+
+    _info "Enter your Git user name or real name (or press Enter to skip):"
+    read "git_name?  → "
+
+    if [ -z "$git_name" ]; then
+        _warn "Skipped git config setup"
+        return 0
+    fi
+
+    _info "Enter your Git email:"
+    read "git_email?  → "
+
+    _echo_run mkdir -p "$config_dir"
+    cat > "$config_file" << EOF
+[user]
+    name = $git_name
+    email = $git_email
+EOF
+    _info "Git user config created at $config_file"
 }
 
 main() {
-    _info "Setting up Mac with certain set of apps and setting up terminal environment with certain CLI tools"
+    _info_long "Setting up macOS environment."
 
-    # Check if Homebrew is installed and install if not
-    if ! command -v brew >/dev/null 2>&1; then
+    _info "Converting mac-setup repository to SSH..."
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    if [ -d "$SCRIPT_DIR/.git" ]; then
+        _set_ssh_remote "$SCRIPT_DIR"
+    fi
+
+    _info_long "Checking for Homebrew..."
+    if ! command -v brew &>/dev/null; then
         _info "Homebrew not found. Installing Homebrew..."
         _log "RUN" "/bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
         if ! /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
             _error "Failed to install Homebrew"
             return 1
         fi
-        _echo_run eval "$(/opt/homebrew/bin/brew shellenv)"
-
-        _info "Tapping alternative cask versions..."
-        _echo_run brew tap homebrew/cask-versions
+        eval "$(/opt/homebrew/bin/brew shellenv)"
     else
-        _info "Homebrew is already installed. Updating Homebrew..."
+        _info "Homebrew is already installed. Updating..."
         _echo_run brew update
     fi
 
-    # Install Raycast
-    _info "Installing Raycast (app to search and run commands)..."
+    _info_long "Installing stow and just (prerequisites for dotfiles)..."
+    _echo_run brew install stow just
+
+    _info_long "Adding workspace and dotfiles..."
+    [ -d "$HOME/Workspace" ] || {
+        _info "Creating workspace directory as ~/Workspace..."
+        _echo_run mkdir "$HOME/Workspace"
+    }
+    [ -d "$HOME/Workspace/dotfiles" ] || {
+        _info "Cloning dotfiles repository to workspace..."
+        _echo_run git clone https://github.com/Aapok0/dotfiles.git "$HOME/Workspace/dotfiles"
+        _set_ssh_remote "$HOME/Workspace/dotfiles"
+    }
+
+    _info_long "Moving to dotfiles directory..."
+    _echo_run cd "$HOME/Workspace/dotfiles"
+
+    _info_long "Running full dotfiles setup via justfile (installs packages, stows configs, sets up shell, installs font)..."
+    _echo_run just install
+
+    _info "Setting up git user configuration..."
+    _setup_git_config
+
+    _info_long "Installing macOS apps..."
+
+    _info "Installing Raycast..."
     _echo_run brew install --cask raycast
 
-    # Install Rectangle window manager
     _info "Installing Rectangle window manager..."
     _echo_run brew install --cask rectangle
 
-    # Install and  configure Kitty
-    _info "Installing kitty terminal emulator and Fira Code Nerd Font..."
-    _echo_run brew tap homebrew/cask-fonts
-    _echo_run brew install kitty --cask font-fira-code-nerd-font
-
-    _clone_repo "https://github.com/Aapok0/kitty.git" "$HOME/.config/kitty" "kitty configuration" 1
-
-    _info "Adding title bar back to help with mouse selection..."
-    _echo_run sed -i "" "^hide_window_decorations.*/hide_window_decorations no/" "$HOME/.config/kitty/kitty.conf"
-
-    # Configure ZSH
-
-    _clone_repo "https://github.com/Aapok0/zsh.git" "$HOME/.config/zsh" "ZSH configuration" 1
-
-    _info "Commenting out PATH variable rewrite..."
-    _echo_run sed -i '' '/^export PATH=/ s/^/#/' "$HOME/.config/zsh/.zshrc"
-
-    _info "Adding line to initialize Homebrew to .zshrc..."
-    _echo_run sed -i "" "/export VISUAL='nvim'/r"<(
-        echo ""
-        echo ""
-        echo "### HOMEBREW"
-        echo 'eval "$(/opt/homebrew/bin/brew shellenv)"'
-    ) "$HOME/.config/zsh/.zshrc"
-
-    _info "Installing coreutils and adding it to path to get dircolors working..."
-    _echo_run brew install coreutils
-    _echo_run sed -i "" "/eval \"\$(/opt/homebrew/bin/brew shellenv)\"/r"<(
-        echo ""
-        echo ""
-        echo "### COREUTILS FOR DIRCOLOR"
-        echo 'PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH"'
-    ) "$HOME/.config/zsh/.zshrc"
-
-    # This was recently changed to...? Starship?
-    choice=$(_ask_choice "Which prompt theme would you like to install, (P)owerlevel10k or (s)paceship: " \
-        '|P|p|Powerlevel10k|powerlevel10k|Powelevel|powerlevel:powerlevel10k' \
-        'S|s|Spaceship|spaceship:spaceship')
-    
-    case "$choice" in
-        powerlevel10k)
-            _clone_repo "https://github.com/romkatv/powerlevel10k.git" "$HOME/.config/zsh/themes/powerlevel10k" "PowerLevel10k theme" 1
-            ;;
-        spaceship)
-            _clone_repo "https://github.com/spaceship-prompt/spaceship-prompt.git" "$HOME/.config/zsh/themes/spaceship-prompt" "Spaceship theme" 1
-            ;;
-    esac
-
-    _info "Installing ZSH plugins Fast-Syntax-Highlighting, ZSH-Autosuggestions and ZSH-Completions..."
-    _clone_repo "https://github.com/zdharma-continuum/fast-syntax-highlighting.git" "$HOME/.config/zsh/plugins/fast-syntax-highlighting" "fast-syntax-highlighting" 1
-    _clone_repo "https://github.com/zsh-users/zsh-autosuggestions.git" "$HOME/.config/zsh/plugins/zsh-autosuggestions" "zsh-autosuggestions" 1
-    _clone_repo "https://github.com/zsh-users/zsh-completions.git" "$HOME/.config/zsh/plugins/zsh-completions" "zsh-completions" 1
-
-    _info "Installing CLI tools: wget, python3, neovim, tmux, eza, bat, htop, ripgrep, xclip, zoxide, fzf, fd, tfswitch, telnet, tcptraceroute, azure-cli, gh, ffmpeg, tlrc, thefuck and nb..."
-    _echo_run brew install \
-        wget python3 node neovim tmux eza bat htop ripgrep xclip zoxide fzf fd \
-        warrensbox/tap/tfswitch telnet tcptraceroute azure-cli gh ffmpeg tlrc thefuck nb
-
-    _clone_repo "https://github.com/junegunn/fzf-git.sh.git" "$HOME/.config/zsh/tools/fzf-git.sh" "fzf-git" 1
-
-    _info "Changing fdfind commands to fd in .zshrc..."
-    _echo_run sed -i "" "s/fdfind/fd/g" "$HOME/.config/zsh/.zshrc"
-
-    _info "Installing Catppuccin Mocha theme for bat..."
-    _echo_run mkdir -p "$(bat --config-dir)/themes"
-    _echo_run wget -P "$(bat --config-dir)/themes" https://github.com/catppuccin/bat/raw/main/themes/Catppuccin%20Mocha.tmTheme
-    _echo_run bat cache --build
-
-    _info "Creating symlink of .zshenv to home directory..."
-    _echo_run ln -s "$HOME/.config/zsh/.zshenv" "$HOME/.zshenv"
-
-    # Neovim
-    _info "Installing Neovim..."
-    _echo_run brew install neovim
-    _clone_repo "https://github.com/Aapok0/nvim.git" "$HOME/.config/nvim" "Neovim configuration" 1
-
-    # tmux
-    _info "Installing tmux..."
-    _echo_run brew install tmux
-    _clone_repo "https://github.com/Aapok0/tmux.git" "$HOME/.config/tmux" "tmux configuration" 1
-    _clone_repo "https://github.com/tmux-plugins/tpm" "$HOME/.tmux/plugins/tpm" "tmux package manager" 1
-    _clone_repo "https://github.com/Aapok0/tmux-tools.git" "$HOME/.config/tmux/tmux-tools" "tmux-tools" 1
-
-    _info "Creating symbolic links for tmux tools..."
-    _echo_run sudo ln -s "$HOME/.config/tmux/tmux-tools/tmuxz" /usr/local/bin/tmuxz
-    _echo_run sudo ln -s "$HOME/.config/tmux/tmux-tools/tmuxf" /usr/local/bin/tmuxf
-
-    # Add gitconfig
-    _clone_repo "https://github.com/Aapok0/gitconfig.git" "$HOME/.config/gitconfig" "gitconfig" 1
-    _info "Copying gitconfig to home directory..."
-    _echo_run cp "$HOME/.config/gitconfig/.gitconfig" "$HOME/.gitconfig"
-
-    git_name=$(_ask_input "Give your first and last name to be set for your name in git: " "name")
-    _echo_run sed -i "" "s/name =/name = $git_name/" "$HOME/.gitconfig"
-    _info "Name '$git_name' has been inserted into gitconfig"
-
-    git_email=$(_ask_input "Give your email to be set as your email in git: " "email")
-    _echo_run sed -i "" "s/email =/email = $git_email/" "$HOME/.gitconfig"
-    _info "Email '$git_email' has been inserted into gitconfig"
-
-    # SSH key
-    choice=$(_ask_choice "Do you want to create an SSH key? (Y/n): " \
-        '|Y|y|Yes|yes:yes' \
-        'N|n|No|no:no')
-    
-    if [[ "$choice" == "yes" ]]; then
-        ssh_email=$(_ask_input "Enter your email for the SSH key: " "email")
-        read -p "Enter key name (press Enter for default 'id_ed25519'): " -r key_name
-        key_name="${key_name:-id_ed25519}"
-        
-        _info "Creating SSH key..."
-        _echo_run ssh-keygen -t ed25519 -C "$ssh_email" -f "$HOME/.ssh/$key_name"
-        _info "Starting SSH agent..."
-        eval "$(ssh-agent -s)"
-        _info "Adding SSH key to agent..."
-        _echo_run ssh-add "$HOME/.ssh/$key_name"
-        _info "SSH key has been created at $HOME/.ssh/$key_name"
-    else
-        _info "Skipping SSH key creation"
-    fi
-
-    # Menu bar apps installation
     _info "Installing menu bar apps: hiddenbar, stats, and itsycal..."
     _echo_run brew install --cask hiddenbar stats itsycal
 
-    # Installing rest of the apps
     choice=$(_ask_choice "Which password manager(s) do you want to install? (B)itwarden, (k)eepassxc, b(o)th, or (n)one: " \
         '|B|b|Bitwarden|bitwarden:bitwarden' \
         'K|k|Keepassxc|keepassxc:keepassxc' \
         'O|o|Both|both:both' \
         'N|n|None|none:none')
-    
+
     case "$choice" in
         bitwarden)
             _info "Installing Bitwarden..."
@@ -258,7 +190,7 @@ main() {
         'D|d|Developer|developer:developer' \
         'B|b|Both|both:both' \
         'N|n|None|none:none')
-    
+
     case "$choice" in
         regular)
             _info "Installing Firefox..."
@@ -266,11 +198,11 @@ main() {
             ;;
         developer)
             _info "Installing Firefox Developer Edition..."
-            _echo_run brew install --cask homebrew/cask-versions/firefox-developer-edition
+            _echo_run brew install --cask firefox@developer-edition
             ;;
         both)
             _info "Installing Firefox and Firefox Developer Edition..."
-            _echo_run brew install --cask firefox homebrew/cask-versions/firefox-developer-edition
+            _echo_run brew install --cask firefox firefox@developer-edition
             ;;
         none)
             _info "Skipping Firefox installation"
@@ -280,8 +212,8 @@ main() {
     _info "Installing Docker Desktop..."
     _echo_run brew install --cask docker
 
-    _info "Installing kubelogin and helm..."
-    _echo_run brew install Azure/kubelogin/kubelogin helm
+    _info "Installing kubelogin..."
+    _echo_run brew install Azure/kubelogin/kubelogin
 
     _info "Installing Wireshark..."
     _echo_run brew install --cask wireshark
@@ -292,7 +224,20 @@ main() {
     _info "Installing Android File Transfer..."
     _echo_run brew install --cask android-file-transfer
 
-    _info "Setup complete! Please review the README.md for manual configuration steps"
+    _log "INFO" "Setup completed. Log saved to: $LOGFILE"
+    echo ""
+    echo "SETUP FINISHED"
+    echo "Post-setup tasks:"
+    echo "1. Configure system settings (see instructions/system-settings.md)"
+    echo "2. Configure Finder (see instructions/finder.md)"
+    echo "3. Configure apps (see instructions/app-configuration.md)"
+    echo "4. Log out and back in (or run 'exec zsh') to use zsh"
+    echo "5. Open nvim and install plugins:"
+    echo "   - nvim"
+    echo "   - Let lazy.nvim install plugins"
+    echo "   - :MasonInstall shellcheck shfmt stylua prettier ruff hadolint tflint ansible-lint"
+    echo "6. Open tmux (tmux) and install plugins (ctrl+space I)"
 }
 
-main || { _error "Setup script failed!"; exit 1; }
+main "$@" || { _error "Setup script failed!"; exit 1; }
+
