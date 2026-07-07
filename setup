@@ -223,21 +223,21 @@ main() {
     _section "macOS apps"
 
     _info "Installing Raycast..."
-    _echo_run brew install --cask raycast
+    _echo_run brew install --cask --adopt raycast
 
     _info "Installing Rectangle window manager..."
-    _echo_run brew install --cask rectangle
+    _echo_run brew install --cask --adopt rectangle
 
     _info "Installing menu bar apps: hiddenbar, stats, itsycal..."
-    _echo_run brew install --cask hiddenbar stats itsycal
+    _echo_run brew install --cask --adopt hiddenbar stats itsycal
 
     _info "Installing password manager..."
     case "$machine_type" in
         personal)
-            _echo_run brew install --cask bitwarden
+            _echo_run brew install --cask --adopt bitwarden
             ;;
         work)
-            _echo_run brew install --cask keepassxc
+            _echo_run brew install --cask --adopt keepassxc
             ;;
     esac
 
@@ -250,15 +250,15 @@ main() {
     case "$choice" in
         regular)
             _info "Installing Firefox..."
-            _echo_run brew install --cask firefox
+            _echo_run brew install --cask --adopt firefox
             ;;
         developer)
             _info "Installing Firefox Developer Edition..."
-            _echo_run brew install --cask firefox@developer-edition
+            _echo_run brew install --cask --adopt firefox@developer-edition
             ;;
         both)
             _info "Installing Firefox and Firefox Developer Edition..."
-            _echo_run brew install --cask firefox firefox@developer-edition
+            _echo_run brew install --cask --adopt firefox firefox@developer-edition
             ;;
         none)
             _info "Skipping Firefox installation"
@@ -266,28 +266,28 @@ main() {
     esac
 
     _info "Installing Docker Desktop..."
-    _echo_run brew install --cask docker
+    _echo_run brew install --cask --adopt docker
 
     _info "Installing Wireshark..."
-    _echo_run brew install --cask wireshark
+    _echo_run brew install --cask --adopt wireshark
 
     _info "Installing media apps: VLC and Spotify..."
-    _echo_run brew install --cask vlc spotify
+    _echo_run brew install --cask --adopt vlc spotify
 
     case "$machine_type" in
         personal)
             _section "Personal machine apps"
             _info "Installing NordVPN..."
-            _echo_run brew install --cask nordvpn
+            _echo_run brew install --cask --adopt nordvpn
             _info "Installing Tailscale..."
-            _echo_run brew install --cask tailscale
+            _echo_run brew install --cask --adopt tailscale
             _info "Installing Cursor..."
-            _echo_run brew install --cask cursor
+            _echo_run brew install --cask --adopt cursor
             ;;
         work)
             _section "Work machine apps"
             _info "Installing Visual Studio Code..."
-            _echo_run brew install --cask visual-studio-code
+            _echo_run brew install --cask --adopt visual-studio-code
             ;;
     esac
 
