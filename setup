@@ -1,69 +1,85 @@
-#!/usr/bin/env zsh
+#!/usr/bin/env bash
 
 set -o pipefail
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
-LOGFILE="logs/${timestamp}_setup.log"
+LOGFILE="${REPO_ROOT}/logs/${timestamp}_setup.log"
 
-mkdir -p logs
+mkdir -p "${REPO_ROOT}/logs"
 exec > >(tee -a "$LOGFILE") 2>&1
 
+# ============================================================================
+# Logging
+# ============================================================================
+
 _log() {
-    local level="$1" msg="$2"
-    printf "[%s] %s: %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$level" "$msg"
+    local level="$1"
+    shift
+    printf "[%s] %s: %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$level" "$*"
+}
+
+_section() {
+    _log "OUT" "=========================================="
+    _log "OUT" "$1"
+    _log "OUT" "=========================================="
 }
 
 _info() {
     _log "INFO" "$*"
-    sleep 1
-}
-
-_info_long() {
-    _log "INFO" "$*"
-    sleep 2
 }
 
 _error() {
     _log "ERROR" "$*"
-    sleep 2
 }
 
 _warn() {
     _log "WARN" "$*"
 }
 
+# ============================================================================
+# Setup runtime
+# ============================================================================
+
+SETUP_ERRORS=0
+
 _echo_run() {
     _log "RUN" "$*"
-    "$@" || { _error "Command failed: $*"; return 1; }
-}
-
-_to_ssh_url() {
-    local url=$1
-    echo "$url" | sed 's|https://github\.com/|git@github.com:|'
-}
-
-_set_ssh_remote() {
-    local repo_path=$1
-    cd "$repo_path" || return 1
-    local https_url=$(git config --get remote.origin.url)
-    local ssh_url=$(_to_ssh_url "$https_url")
-    if [ "$https_url" != "$ssh_url" ]; then
-        _echo_run git remote set-url origin "$ssh_url"
+    local rc=0
+    "$@" || rc=$?
+    if [ "$rc" -eq 0 ]; then
+        return 0
     fi
-    cd - > /dev/null || return 1
+    _error "Command failed (exit ${rc}): $*"
+    SETUP_ERRORS=$((SETUP_ERRORS + 1))
+    return 1
 }
+
+_setup_finalize() {
+    if [ "${SETUP_ERRORS:-0}" -gt 0 ]; then
+        _error "Setup finished with ${SETUP_ERRORS} error(s). See ${LOGFILE}"
+        return 1
+    fi
+    return 0
+}
+
+# ============================================================================
+# Interactive prompts
+# ============================================================================
 
 _ask_choice() {
     local prompt="$1"
     shift
+    local reply
     while true; do
-        read "REPLY?$prompt"
+        read -rp "$prompt" reply
         for option in "$@"; do
             local keys="${option%%:*}"
             local value="${option#*:}"
-            local key_array=("${(@s:|:)keys}")
+            local key
+            IFS='|' read -ra key_array <<< "$keys"
             for key in "${key_array[@]}"; do
-                if [[ "$REPLY" == "$key" ]]; then
+                if [[ "$reply" == "$key" ]]; then
                     echo "$value"
                     return 0
                 fi
@@ -73,9 +89,51 @@ _ask_choice() {
     done
 }
 
+# ============================================================================
+# Shared helpers
+# ============================================================================
+
+_to_ssh_url() {
+    local url=$1
+    case "$url" in
+        https://github.com/*) echo "git@github.com:${url#https://github.com/}" ;;
+        *) echo "$url" ;;
+    esac
+}
+
+_set_ssh_remote() {
+    local repo_path=$1
+    local https_url ssh_url
+
+    cd "$repo_path" || return 1
+    https_url=$(git config --get remote.origin.url)
+    ssh_url=$(_to_ssh_url "$https_url")
+    if [ "$https_url" != "$ssh_url" ]; then
+        _echo_run git remote set-url origin "$ssh_url"
+    fi
+    cd - > /dev/null || return 1
+}
+
+_ensure_ssh_ed25519_key() {
+    local key="${HOME}/.ssh/id_ed25519"
+
+    if [ -f "$key" ]; then
+        _info "SSH key already exists: ${key}"
+        return 0
+    fi
+
+    _info "Generating ed25519 SSH key (no passphrase) at ${key}..."
+    _echo_run mkdir -p "${HOME}/.ssh"
+    _echo_run chmod 700 "${HOME}/.ssh"
+    _echo_run ssh-keygen -t ed25519 -f "$key" -N "" -q
+    _echo_run chmod 600 "$key"
+    [ -f "${key}.pub" ] && _echo_run chmod 644 "${key}.pub"
+}
+
 _setup_git_config() {
     local config_dir="$HOME/.config/git"
     local config_file="$config_dir/config.local"
+    local git_name git_email
 
     [ -d "$config_dir" ] || _echo_run mkdir -p "$config_dir"
 
@@ -85,7 +143,7 @@ _setup_git_config() {
     fi
 
     _info "Enter your Git user name or real name (or press Enter to skip):"
-    read "git_name?  → "
+    read -rp "  → " git_name
 
     if [ -z "$git_name" ]; then
         _warn "Skipped git config setup"
@@ -93,7 +151,7 @@ _setup_git_config() {
     fi
 
     _info "Enter your Git email:"
-    read "git_email?  → "
+    read -rp "  → " git_email
 
     _echo_run mkdir -p "$config_dir"
     cat > "$config_file" << EOF
@@ -104,17 +162,31 @@ EOF
     _info "Git user config created at $config_file"
 }
 
-main() {
-    _info_long "Setting up macOS environment."
+# ============================================================================
+# Main
+# ============================================================================
 
+main() {
+    _section "macOS environment setup"
+    _info "Logging to: ${LOGFILE}"
+
+    _section "SSH key"
+    _ensure_ssh_ed25519_key
+
+    _section "Machine type"
+    machine_type=$(_ask_choice "Is this a (p)ersonal or (w)ork machine? " \
+        '|P|p|Personal|personal:personal' \
+        'W|w|Work|work:work')
+    _info "Machine type: ${machine_type}"
+
+    _section "Repository remote"
     _info "Converting mac-setup repository to SSH..."
-    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-    if [ -d "$SCRIPT_DIR/.git" ]; then
-        _set_ssh_remote "$SCRIPT_DIR"
+    if [ -d "${REPO_ROOT}/.git" ]; then
+        _set_ssh_remote "$REPO_ROOT"
     fi
 
-    _info_long "Checking for Homebrew..."
-    if ! command -v brew &>/dev/null; then
+    _section "Homebrew"
+    if ! command -v brew &> /dev/null; then
         _info "Homebrew not found. Installing Homebrew..."
         _log "RUN" "/bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
         if ! /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
@@ -123,14 +195,14 @@ main() {
         fi
         eval "$(/opt/homebrew/bin/brew shellenv)"
     else
-        _info "Homebrew is already installed. Updating..."
+        _info "Homebrew already installed. Updating..."
         _echo_run brew update
     fi
 
-    _info_long "Installing stow and just (prerequisites for dotfiles)..."
+    _section "Dotfiles"
+    _info "Installing stow and just (prerequisites for dotfiles)..."
     _echo_run brew install stow just
 
-    _info_long "Adding workspace and dotfiles..."
     [ -d "$HOME/Workspace" ] || {
         _info "Creating workspace directory as ~/Workspace..."
         _echo_run mkdir "$HOME/Workspace"
@@ -141,16 +213,14 @@ main() {
         _set_ssh_remote "$HOME/Workspace/dotfiles"
     }
 
-    _info_long "Moving to dotfiles directory..."
-    _echo_run cd "$HOME/Workspace/dotfiles"
+    _info "Running full dotfiles setup via justfile..."
+    _echo_run just --justfile "$HOME/Workspace/dotfiles/justfile" \
+        --working-directory "$HOME/Workspace/dotfiles" install
 
-    _info_long "Running full dotfiles setup via justfile (installs packages, stows configs, sets up shell, installs font)..."
-    _echo_run just install
-
-    _info "Setting up git user configuration..."
+    _section "Git config"
     _setup_git_config
 
-    _info_long "Installing macOS apps..."
+    _section "macOS apps"
 
     _info "Installing Raycast..."
     _echo_run brew install --cask raycast
@@ -158,34 +228,20 @@ main() {
     _info "Installing Rectangle window manager..."
     _echo_run brew install --cask rectangle
 
-    _info "Installing menu bar apps: hiddenbar, stats, and itsycal..."
+    _info "Installing menu bar apps: hiddenbar, stats, itsycal..."
     _echo_run brew install --cask hiddenbar stats itsycal
 
-    choice=$(_ask_choice "Which password manager(s) do you want to install? (B)itwarden, (k)eepassxc, b(o)th, or (n)one: " \
-        '|B|b|Bitwarden|bitwarden:bitwarden' \
-        'K|k|Keepassxc|keepassxc:keepassxc' \
-        'O|o|Both|both:both' \
-        'N|n|None|none:none')
-
-    case "$choice" in
-        bitwarden)
-            _info "Installing Bitwarden..."
+    _info "Installing password manager..."
+    case "$machine_type" in
+        personal)
             _echo_run brew install --cask bitwarden
             ;;
-        keepassxc)
-            _info "Installing KeePassXC..."
+        work)
             _echo_run brew install --cask keepassxc
-            ;;
-        both)
-            _info "Installing Bitwarden and KeePassXC..."
-            _echo_run brew install --cask bitwarden keepassxc
-            ;;
-        none)
-            _info "Skipping password manager installation"
             ;;
     esac
 
-    choice=$(_ask_choice "Which Firefox version do you want to install? (R)egular, (d)eveloper edition, (b)oth, or (n)one: " \
+    choice=$(_ask_choice "Which Firefox version to install? (R)egular, (d)eveloper edition, (b)oth, or (n)one: " \
         '|R|r|Regular|regular:regular' \
         'D|d|Developer|developer:developer' \
         'B|b|Both|both:both' \
@@ -212,19 +268,31 @@ main() {
     _info "Installing Docker Desktop..."
     _echo_run brew install --cask docker
 
-    _info "Installing kubelogin..."
-    _echo_run brew install Azure/kubelogin/kubelogin
-
     _info "Installing Wireshark..."
     _echo_run brew install --cask wireshark
 
     _info "Installing media apps: VLC and Spotify..."
     _echo_run brew install --cask vlc spotify
 
-    _info "Installing Android File Transfer..."
-    _echo_run brew install --cask android-file-transfer
+    case "$machine_type" in
+        personal)
+            _section "Personal machine apps"
+            _info "Installing NordVPN..."
+            _echo_run brew install --cask nordvpn
+            _info "Installing Tailscale..."
+            _echo_run brew install --cask tailscale
+            _info "Installing Cursor..."
+            _echo_run brew install --cask cursor
+            ;;
+        work)
+            _section "Work machine apps"
+            _info "Installing Visual Studio Code..."
+            _echo_run brew install --cask visual-studio-code
+            ;;
+    esac
 
-    _log "INFO" "Setup completed. Log saved to: $LOGFILE"
+    _section "Done"
+    _log "INFO" "Setup completed. Log saved to: ${LOGFILE}"
     echo ""
     echo "SETUP FINISHED"
     echo "Post-setup tasks:"
@@ -232,12 +300,10 @@ main() {
     echo "2. Configure Finder (see instructions/finder.md)"
     echo "3. Configure apps (see instructions/app-configuration.md)"
     echo "4. Log out and back in (or run 'exec zsh') to use zsh"
-    echo "5. Open nvim and install plugins:"
-    echo "   - nvim"
-    echo "   - Let lazy.nvim install plugins"
-    echo "   - :MasonInstall shellcheck shfmt stylua prettier ruff hadolint tflint ansible-lint"
+    echo "5. Open nvim and run: :MasonInstall shellcheck shfmt stylua prettier ruff hadolint tflint ansible-lint"
     echo "6. Open tmux (tmux) and install plugins (ctrl+space I)"
+
+    _setup_finalize
 }
 
-main "$@" || { _error "Setup script failed!"; exit 1; }
-
+main "$@"

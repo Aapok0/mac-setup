@@ -1,0 +1,5 @@
+# ShellCheck config for mac-setup
+#
+# SC2016: intentional literal $VARs in single-quoted strings passed to bash -c
+external-sources=true
+disable=SC2016
