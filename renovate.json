@@ -1,0 +1,31 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    "schedule:weekly"
+  ],
+  "packageRules": [
+    {
+      "description": "Group all CI deps (Actions + workflow tool pins) into one PR",
+      "matchManagers": ["github-actions", "custom.regex"],
+      "groupName": "ci dependencies"
+    },
+    {
+      "description": "Automerge patch/minor/digest (the group merges only if every member is automergeable)",
+      "matchManagers": ["github-actions", "custom.regex"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true
+    }
+  ],
+  "customManagers": [
+    {
+      "description": "CI tool versions pinned in workflow env: blocks (annotated with # renovate:)",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\s+\\w+_VERSION:\\s*[\"']?(?<currentValue>[^\"'\\s]+)"
+      ]
+    }
+  ]
+}
